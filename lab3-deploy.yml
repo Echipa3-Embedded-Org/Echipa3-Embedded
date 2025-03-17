@@ -1,0 +1,26 @@
+name: Deploy to Linux VM
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: SSH into VM and Deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          password: ${{ secrets.VM_PASS }}
+          script: |
+            cd /home/${{ secrets.VM_USER }}/your-repo
+            git pull origin main
+            docker-compose up --build -d
+            kubectl apply -f k8s/
