@@ -1,0 +1,168 @@
+1.Install openssl
+sudo apt-get update
+sudo apt-get install openssl
+
+2.Create a private key for our certificate authority.
+openssl genrsa -des3 -out ca.key 2048
+
+3.Create a certificate for our certificate authority.
+openssl req -new -x509 -days 1826 -key ca.key -out ca.crt
+
+Country Name (2 letter code) [AU]: AU
+State or Province Name (full name) [Some-State]:
+Locality Name (eg, city) []:
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:
+Organizational Unit Name (eg, section) []: 
+Common Name (e.g. server FQDN or YOUR name) []: myCA
+Email Address []:
+
+password:password
+
+4.Generate a server private key.
+openssl genrsa -out server.key 2048
+
+5.Generate a certificate signing request (csr) for the server.
+openssl req -new -out server.csr -key server.key
+
+Country Name (2 letter code) [AU]: AU
+State or Province Name (full name) [Some-State]:
+Locality Name (eg, city) []:
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:
+Organizational Unit Name (eg, section) []:
+Common Name (e.g. server FQDN or YOUR name) []: localhost
+Email Address []:
+
+6. Validate the server certificate signing request with the certificate authority (which is us)
+openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 360
+
+7. Generate a client private key.
+openssl genrsa -out client.key 2048
+
+8. Generate a certificate signing request (csr) for the client.
+openssl req -new -out client.csr -key client.key
+
+Country Name (2 letter code) [AU]: AU
+State or Province Name (full name) [Some-State]:
+Locality Name (eg, city) []:
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:
+Organizational Unit Name (eg, section) []:
+Common Name (e.g. server FQDN or YOUR name) []: myclient
+Email Address []:
+
+9. Validate the client certificate signing request with the certificate authority (which is us).
+openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out client.crt -days 360
+
+
+
+Mosquitto MQTT Broker Configuration
+
+1.Install Mosquitto MQTT Broker.
+sudo apt update
+sudo apt install -y mosquitto
+sudo systemctl status mosquitto
+
+2. Copy the certificate authority certificate (ca.crt), server certificate (server.crt) & server private key (server.key) to /etc/mosquitto/certs on your server.
+
+3. Update the Mosquitto configuration to support mutual certificate authentication.
+
+Create a custom configuration file:
+sudo nano /etc/mosquitto/conf.d/custom.conf
+
+# Don't allow unauthenticated users
+allow_anonymous false
+# Port to listen on 
+listener 8883
+# Uses the common name from the client cert as the username
+use_identity_as_username true
+# Path the the Certificate Authority Cert.
+cafile /etc/mosquitto/certs/ca.crt
+# Path to server private key
+keyfile /etc/mosquitto/certs/server.key
+# Path to server certificate
+certfile /etc/mosquitto/certs/server.crt
+# Set TLS version
+tls_version tlsv1.2
+# Require that clients provide certificates
+require_certificate true
+
+4. Restart the Mosquitto service.
+sudo service mosquitto restart
+
+sudo cp /root/mosquitto_certs/*.crt /etc/mosquitto/certs/
+sudo cp /root/mosquitto_certs/*.key /etc/mosquitto/certs/
+
+#change the ownership of the files to the mosquitto user and group 
+sudo chown mosquitto:mosquitto /etc/mosquitto/certs/*
+
+#permissions are set properly
+sudo chmod 644 /etc/mosquitto/certs/*
+sudo chmod 600 /etc/mosquitto/certs/*.key
+
+#test connection
+telnet 192.168.100.53 8883
+mosquitto_sub -h 192.168.100.53 -p 1883 -t "test/topic"
+
+openssl s_client -connect 192.168.100.53:8883 -CAfile /etc/mosquitto/certs/ca.crt -cert /etc/mosquitto/certs/client.crt -key /etc/mosquitto/certs/client.key
+
+mosquitto_sub -h 192.168.100.53 -p 8883 -t "test/topic" --cafile /etc/mosquitto/certs/ca.crt --cert  /etc/mosquitto/certs/client.crt --key  /etc/mosquitto/certs/client.key
+
+mosquitto_pub -h 192.168.100.53 -p 8883 -t "test/topic" -m "Hello from mTLS!" --cafile /etc/mosquitto/certs/ca.crt --cert /etc/mosquitto/certs/client.crt --key /etc/mosquitto/certs/client.key
+
+//dupa ce conexiunea a fost realizata si functioneaza, vom folosi esp32-ul pentru a ne conecta la server, iar din program avem un output de genul:
+Checking wifi....WiFi connected!
+connected!
+incoming: /test - hello world
+incoming: /test - hello world
+incoming: /test - hello world
+...
+
+
+
+alte comenzi folositoare:
+su - root
+adduser username sudo
+adduser root sudo
+usermod -aG sudo user
+sudo passwd root
+
+sudo nano /etc/mosquitto/conf.d/mtls.conf
+sudo systemctl status mosquitto.service
+sudo systemctl restart mosquitto
+sudo systemctl status mosquitto
+mosquitto -c /etc/mosquitto/mosquitto.conf -v
+sudo nano /etc/mosquitto/mosquitto.conf 
+
+ps -aux |grep mosquitto
+sudo lsof -i :8883
+sudo netstat -tulnp | grep 8883
+sudo kill -9 <PID of apache>
+
+sudo nano /etc/mosquitto/conf.d/mtls.conf
+listener 8883
+require_certificate true
+cafile /etc/mosquitto/certs/mqtt_certs/ca.crt
+certfile /etc/mosquitto/certs/mqtt_certs/server.crt
+keyfile /etc/mosquitto/certs/mqtt_certs/server.key
+
+
+
+t1: mosquitto_sub -t '/test'
+t2: mosquitto_pub -t '/test' -m 'Hello world'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
