@@ -1,0 +1,17 @@
+services:
+  mqtt:
+    image: eclipse-mosquitto:2.0.21
+    container_name: ss-mqtt
+    restart: always
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/certs:/mosquitto/certs
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    ports:
+      - "8883:8883"
+    networks:
+      - ss-mqttnet
+
+networks:
+  ss-mqttnet:
