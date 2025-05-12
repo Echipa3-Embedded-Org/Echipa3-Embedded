@@ -1,0 +1,7 @@
+*.crt
+*.key
+*.csr
+*.srl
+mosquitto/certs/
+mosquitto/data/
+mosquitto/log/
