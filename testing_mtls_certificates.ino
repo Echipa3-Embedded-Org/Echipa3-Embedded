@@ -4,7 +4,7 @@
 #include <WiFiClientSecure.h>
 
 const char ssid[] = "DIGI-x39P";
-const char pass[] = "f988c1dc";
+const char pass[] = "password";
 
 // MQTT Broker details
 const char* mqtt_server = "192.168.100.53";
