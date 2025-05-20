@@ -1,0 +1,37 @@
+Node-Red este configurat pe o masina virtuala pe care o putem accesa din LAN
+
+Pachete extra instalate:
+
+ - node-red-dashboard (pentru a controla placuta prin intermediul unei pagini web)
+ - node-red-contrib-image-output (ofera modulele de salvare si vizualizare imagini)
+ - node-red-base64 (imaginile salvate in buffer vor fi convertite la base64 pentru vizualizare)
+
+
+Instalarea pachetelor externe se face in folderul  ~/.node-red/
+ 
+
+Instalarea pachetelor s-a facut folosind npm, iar instalarea node-red-ului a fost facuta folosind script-ul oferit pe site-ul oficial.
+
+
+Fiind un serviciu care ruleaza pe Linux, accesul in LAN si Internet se poate face usor si securizat: 
+ - LAN > Conectarea hostului in retea si configurarea hipervizorului sa conecteze VM-ul intr-un switch virtual
+ - WAN > Configurarea regulilor de port-forwarding pe router care sa dirijeze pachetele catre un server Wireguard. Acesta poate rula chiar pe alt VM sau host.
+
+Pornirea serviciului Node-RED se face cu comanda: node-red-start
+Accesul pe pagina web se face pe: http://192.168.56.10:1880/ui
+
+
+Fiecare nod are o anumita functie diferita:
+
+Capture No/With Flash - trimite topic prin MQTT pentru a controla flash-ul camerei
+Camera Flash/Image - se conecteaza la MQTT broker pentru a cere imaginile spre vizualizare
+View Saved - trimite payload pentru accesarea imaginilor salvate local
+Latest Image + Convert to Base64 - acceseaza un fisier local si il transforma in base64 pentru a fi vizualizat
+
+Picture/Live Image Receiver - trimitere topic prin MQTT
+Process Live/Save Image - functie care trimite payload 
+Static Image/Live Image display - vizualizare date primite in base64
+
+Initialize Live Mode - initializeaza script pentru a fi trimis
+Toggle Live - buton care intrerupe/continua procesul
+Toggle Live Function - cerere flow imagini
