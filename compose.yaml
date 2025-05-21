@@ -12,39 +12,6 @@ services:
       - "8883:8883"
     networks:
       - ss-mqttnet
-  db:
-    image: postgres:17.4
-    restart: always
-    container_name: ss-db
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    environment:
-      POSTGRES_USER: 'dev'
-      POSTGRES_PASSWORD: 'dev'
-      POSTGRES_DB: 'db'
-    volumes:
-      - db-data:/var/lib/postgresql/data
-    networks:
-      - ss-dbnet
-
-  adminer:
-    image: adminer:5.1.0
-    container_name: ss-adminer
-    restart: always
-    depends_on: 
-      db:
-        condition: service_healthy
-    ports:
-      - 8080:8080
-    networks:
-      - ss-dbnet
 
 networks:
   ss-mqttnet:
-  ss-dbnet:
-
-volumes:
-  db-data:
