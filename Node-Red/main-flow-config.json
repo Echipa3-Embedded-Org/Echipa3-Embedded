@@ -8,339 +8,32 @@
         "env": []
     },
     {
-        "id": "dcb520418ba25fa5",
-        "type": "mqtt out",
-        "z": "78bcf1e7a13ccad5",
-        "name": "Camera Flash",
-        "topic": "FLASH",
-        "qos": "2",
-        "retain": false,
-        "broker": "1ce63737bc76b247",
-        "x": 660,
-        "y": 160,
-        "wires": []
+        "id": "9621619999636e3c",
+        "type": "tls-config",
+        "name": "mTLS",
+        "cert": "",
+        "key": "",
+        "ca": "",
+        "certname": "client.crt",
+        "keyname": "client.key",
+        "caname": "ca.crt",
+        "servername": "",
+        "verifyservercert": false,
+        "alpnprotocol": ""
     },
     {
-        "id": "b4c24dbb5be2900c",
-        "type": "mqtt out",
-        "z": "78bcf1e7a13ccad5",
-        "name": "Camera Image",
-        "topic": "SMILE",
-        "qos": "2",
-        "retain": false,
-        "broker": "1ce63737bc76b247",
-        "x": 660,
-        "y": 100,
-        "wires": []
-    },
-    {
-        "id": "841142f71fcf7f43",
-        "type": "mqtt in",
-        "z": "78bcf1e7a13ccad5",
-        "name": "Picture Receiver",
-        "topic": "PICTURE",
-        "qos": "1",
-        "datatype": "buffer",
-        "broker": "1ce63737bc76b247",
-        "inputs": 0,
-        "x": 160,
-        "y": 440,
-        "wires": [ [ "37ef55fff6b103e1" ] ]
-    },
-    {
-        "id": "858998e19e45a443",
-        "type": "ui_button",
-        "z": "78bcf1e7a13ccad5",
-        "name": "Capture No Flash",
-        "group": "17985c5cc069e7a8",
-        "order": 1,
-        "width": 3,
-        "height": 1,
-        "passthru": false,
-        "label": "Capture Photo",
-        "tooltip": "Take photo without flash",
-        "color": "blue",
-        "bgcolor": "",
-        "className": "",
-        "icon": "fa-camera",
-        "payload": "1",
-        "payloadType": "num",
-        "topic": "SMILE",
-        "x": 200,
-        "y": 100,
-        "wires": [ [ "b4c24dbb5be2900c" ] ]
-    },
-    {
-        "id": "248556ea6dc71d27",
-        "type": "ui_button",
-        "z": "78bcf1e7a13ccad5",
-        "name": "Capture With Flash",
-        "group": "17985c5cc069e7a8",
-        "order": 2,
-        "width": 3,
-        "height": 1,
-        "passthru": false,
-        "label": "Flash Photo",
-        "tooltip": "Take photo with flash",
-        "color": "orange",
-        "bgcolor": "",
-        "icon": "fa-bolt",
-        "payload": "1",
-        "payloadType": "num",
-        "topic": "FLASH",
-        "x": 200,
-        "y": 160,
-        "wires": [ [ "dcb520418ba25fa5" ] ]
-    },
-    {
-        "id": "c1579e9981372a64",
-        "type": "ui_template",
-        "z": "78bcf1e7a13ccad5",
-        "group": "17985c5cc069e7a8",
-        "name": "Static Image Display",
-        "order": 3,
-        "width": 6,
-        "height": 5,
-        "format": "<img ng-src=\"data:image/jpeg;base64,{{msg.payload}}\" style=\"width:100%\"/>",
-        "storeOutMessages": true,
-        "fwdInMessages": true,
-        "resendOnRefresh": true,
-        "templateScope": "local",
-        "x": 670,
-        "y": 440,
-        "wires": [ [] ]
-    },
-    {
-        "id": "37ef55fff6b103e1",
-        "type": "function",
-        "z": "78bcf1e7a13ccad5",
-        "name": "Save Image",
-        "func": "const timestamp = new Date().toISOString().replace(/[:.]/g,'-');\nconst filename = `/root/images/capture_${timestamp}.jpg`;\n\nif (!fs.existsSync('/root/images')) {\n    fs.mkdirSync('/root/images', { recursive: true });\n}\n\nconst tempFile = '/root/images/latest.tmp';\nfs.writeFileSync(tempFile, msg.payload);\nfs.renameSync(tempFile, '/root/images/latest.jpg');\nfs.writeFileSync(filename, msg.payload);\n\nreturn { payload: msg.payload.toString('base64') };",
-        "outputs": 1,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [
-            {
-                "var": "fs",
-                "module": "fs"
-            }
-        ],
-        "x": 430,
-        "y": 440,
-        "wires": [ [ "c1579e9981372a64" ] ]
-    },
-    {
-        "id": "df235360ba11982e",
-        "type": "ui_button",
-        "z": "78bcf1e7a13ccad5",
-        "name": "View Saved",
-        "group": "17985c5cc069e7a8",
-        "order": 4,
-        "width": 3,
-        "height": 1,
-        "passthru": false,
-        "label": "View Saved",
-        "tooltip": "View last saved image",
-        "color": "green",
-        "bgcolor": "",
-        "className": "",
-        "icon": "fa-image",
-        "payload": "",
-        "payloadType": "date",
-        "x": 230,
-        "y": 220,
-        "wires": [ [ "5e19d1f035076c54" ] ]
-    },
-    {
-        "id": "5e19d1f035076c54",
-        "type": "file in",
-        "z": "78bcf1e7a13ccad5",
-        "name": "Latest Image",
-        "filename": "/root/images/latest.jpg",
-        "filenameType": "str",
-        "format": "",
-        "chunk": false,
-        "sendError": false,
-        "encoding": "",
-        "x": 430,
-        "y": 220,
-        "wires": [ [ "cfdb70d48ab2e33e" ] ]
-    },
-    {
-        "id": "cfdb70d48ab2e33e",
-        "type": "function",
-        "z": "78bcf1e7a13ccad5",
-        "name": "Convert to Base64",
-        "func": "msg.payload = msg.payload.toString('base64');\nreturn msg;",
-        "outputs": 1,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "x": 630,
-        "y": 220,
-        "wires": [ [ "e677b0f08d700a01" ] ]
-    },
-    {
-        "id": "e677b0f08d700a01",
-        "type": "ui_template",
-        "z": "78bcf1e7a13ccad5",
-        "group": "17985c5cc069e7a8",
-        "name": "Saved Image View",
-        "order": 5,
-        "width": 6,
-        "height": 5,
-        "format": "<img ng-src=\"data:image/jpeg;base64,{{msg.payload}}\" style=\"width:100%\"/>",
-        "storeOutMessages": true,
-        "fwdInMessages": true,
-        "resendOnRefresh": true,
-        "templateScope": "local",
-        "x": 870,
-        "y": 220,
-        "wires": [ [] ]
-    },
-    {
-        "id": "6ad29a97b6f7023d",
-        "type": "ui_button",
-        "z": "78bcf1e7a13ccad5",
-        "name": "Toggle Live",
-        "group": "17985c5cc069e7a8",
-        "order": 7,
-        "width": 3,
-        "height": 1,
-        "passthru": false,
-        "label": "{{flow.liveMode ? 'Stop Live' : 'Start Live'}}",
-        "tooltip": "Start/stop live preview",
-        "color": "{{flow.liveMode ? 'red' : 'green'}}",
-        "bgcolor": "",
-        "className": "",
-        "icon": "fa-video",
-        "payload": "",
-        "payloadType": "str",
-        "topic": "",
-        "x": 470,
-        "y": 380,
-        "wires": [ [ "3f80f0bbf4b66895" ] ]
-    },
-    {
-        "id": "3f80f0bbf4b66895",
-        "type": "function",
-        "z": "78bcf1e7a13ccad5",
-        "name": "Toggle Live Function",
-        "func": "// Toggle the live mode state\nflow.set('liveMode', !flow.get('liveMode') || false);\n\n// Prepare the MQTT message\nvar msg_out = {\n    payload: flow.get('liveMode') ? \"ON\" : \"OFF\",\n    topic: \"LIVE\"\n};\n\n// Update button appearance\nmsg.label = flow.get('liveMode') ? \"Stop Live\" : \"Start Live\";\nmsg.color = flow.get('liveMode') ? \"red\" : \"green\";\n\n// Send both the MQTT command and UI update\nreturn [[msg_out, msg]];",
-        "outputs": 2,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "x": 460,
-        "y": 300,
-        "wires": [
-            [ "ed907e24c21b9a58" ],
-            [ "6ad29a97b6f7023d" ]
-        ]
-    },
-    {
-        "id": "ed907e24c21b9a58",
-        "type": "mqtt out",
-        "z": "78bcf1e7a13ccad5",
-        "name": "Stream Control",
-        "topic": "LIVE",
-        "qos": "2",
-        "retain": false,
-        "broker": "1ce63737bc76b247",
-        "x": 740,
-        "y": 300,
-        "wires": []
-    },
-    {
-        "id": "41822efe0d5fe153",
-        "type": "mqtt in",
-        "z": "78bcf1e7a13ccad5",
-        "name": "Live Image Receiver",
-        "topic": "LIVE_IMAGE",
-        "qos": "1",
-        "datatype": "buffer",
-        "broker": "1ce63737bc76b247",
-        "inputs": 0,
-        "x": 180,
-        "y": 540,
-        "wires": [ [ "2872ddc54c759a8f" ] ]
-    },
-    {
-        "id": "2872ddc54c759a8f",
-        "type": "function",
-        "z": "78bcf1e7a13ccad5",
-        "name": "Process Live Image",
-        "func": "// Validate image data\nif (!msg.payload || msg.payload.length < 100) {\n    node.warn('Invalid image received');\n    return null;\n}\n\n// Convert to base64\nmsg.payload = msg.payload.toString('base64');\n\n// Add timestamp for debugging\nmsg.timestamp = new Date().toISOString();\n\nreturn msg;",
-        "outputs": 1,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "x": 400,
-        "y": 540,
-        "wires": [ [ "90285b0bb5fc41f0", "0603166d842dc016" ] ]
-    },
-    {
-        "id": "90285b0bb5fc41f0",
-        "type": "ui_template",
-        "z": "78bcf1e7a13ccad5",
-        "group": "17985c5cc069e7a8",
-        "name": "Live Image Display",
-        "order": 6,
-        "width": 6,
-        "height": 5,
-        "format": "<div style=\"width:100%;height:100%;position:relative\">\n  <img ng-src=\"data:image/jpeg;base64,{{msg.payload}}\" style=\"width:100%;height:100%;object-fit:contain\"/>\n  <div style=\"position:absolute;bottom:0;right:0;background:rgba(0,0,0,0.5);color:white;padding:2px 5px;font-size:12px\">\n    {{msg.timestamp | date:'HH:mm:ss'}}\n  </div>\n</div>",
-        "storeOutMessages": true,
-        "fwdInMessages": true,
-        "resendOnRefresh": true,
-        "templateScope": "local",
-        "x": 650,
-        "y": 540,
-        "wires": [ [] ]
-    },
-    {
-        "id": "0603166d842dc016",
-        "type": "debug",
-        "z": "78bcf1e7a13ccad5",
-        "name": "Live Image Debug",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "true",
-        "targetType": "msg",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 650,
-        "y": 580,
-        "wires": []
-    },
-    {
-        "id": "3303e317acd6b2cf",
-        "type": "inject",
-        "z": "78bcf1e7a13ccad5",
-        "name": "Initialize Live Mode",
-        "props": [
-            {
-                "p": "payload",
-                "v": "false",
-                "vt": "bool"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": true,
-        "onceDelay": "1",
-        "topic": "",
-        "x": 210,
-        "y": 300,
-        "wires": [ [ "3f80f0bbf4b66895" ] ]
+        "id": "58dd4d0f40d94ed1",
+        "type": "ui_tab",
+        "name": "Home",
+        "icon": "dashboard",
+        "disabled": false,
+        "hidden": false
     },
     {
         "id": "1ce63737bc76b247",
         "type": "mqtt-broker",
         "name": "mosquitto-mqtt-v5",
-        "broker": "192.168.100.53",
+        "broker": "ss-mqtt",
         "port": "8883",
         "tls": "9621619999636e3c",
         "clientid": "",
@@ -380,25 +73,503 @@
         "className": ""
     },
     {
-        "id": "9621619999636e3c",
-        "type": "tls-config",
-        "name": "mTLS",
-        "cert": "",
-        "key": "",
-        "ca": "",
-        "certname": "esp32.crt",
-        "keyname": "esp32.key",
-        "caname": "ca.crt",
-        "servername": "",
-        "verifyservercert": false,
-        "alpnprotocol": ""
+        "id": "e45d94a2b6622a63",
+        "type": "ui_base",
+        "theme": {
+            "name": "theme-light",
+            "lightTheme": {
+                "default": "#0094CE",
+                "baseColor": "#0094CE",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": true,
+                "reset": false
+            },
+            "darkTheme": {
+                "default": "#097479",
+                "baseColor": "#097479",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": false
+            },
+            "customTheme": {
+                "name": "Untitled Theme 1",
+                "default": "#4B7930",
+                "baseColor": "#4B7930",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+            },
+            "themeState": {
+                "base-color": {
+                    "default": "#0094CE",
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-titlebar-backgroundColor": {
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-backgroundColor": {
+                    "value": "#fafafa",
+                    "edited": false
+                },
+                "page-sidebar-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-textColor": {
+                    "value": "#1bbfff",
+                    "edited": false
+                },
+                "group-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "widget-textColor": {
+                    "value": "#111111",
+                    "edited": false
+                },
+                "widget-backgroundColor": {
+                    "value": "#0094ce",
+                    "edited": false
+                },
+                "widget-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "base-font": {
+                    "value": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+                }
+            },
+            "angularTheme": {
+                "primary": "indigo",
+                "accents": "blue",
+                "warn": "red",
+                "background": "grey",
+                "palette": "light"
+            }
+        },
+        "site": {
+            "name": "Node-RED Dashboard",
+            "hideToolbar": "false",
+            "allowSwipe": "false",
+            "lockMenu": "false",
+            "allowTempTheme": "true",
+            "dateFormat": "DD/MM/YYYY",
+            "sizes": {
+                "sx": 48,
+                "sy": 48,
+                "gx": 6,
+                "gy": 6,
+                "cx": 6,
+                "cy": 6,
+                "px": 0,
+                "py": 0
+            }
+        }
     },
     {
-        "id": "58dd4d0f40d94ed1",
-        "type": "ui_tab",
-        "name": "Home",
-        "icon": "dashboard",
-        "disabled": false,
-        "hidden": false
+        "id": "dcb520418ba25fa5",
+        "type": "mqtt out",
+        "z": "78bcf1e7a13ccad5",
+        "name": "Camera Flash",
+        "topic": "FLASH",
+        "qos": "2",
+        "retain": false,
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "1ce63737bc76b247",
+        "x": 660,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "b4c24dbb5be2900c",
+        "type": "mqtt out",
+        "z": "78bcf1e7a13ccad5",
+        "name": "Camera Image",
+        "topic": "SMILE",
+        "qos": "2",
+        "retain": false,
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "1ce63737bc76b247",
+        "x": 660,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "841142f71fcf7f43",
+        "type": "mqtt in",
+        "z": "78bcf1e7a13ccad5",
+        "name": "Picture Receiver",
+        "topic": "PICTURE",
+        "qos": "1",
+        "datatype": "buffer",
+        "broker": "1ce63737bc76b247",
+        "inputs": 0,
+        "x": 160,
+        "y": 440,
+        "wires": [
+            [
+                "37ef55fff6b103e1"
+            ]
+        ]
+    },
+    {
+        "id": "858998e19e45a443",
+        "type": "ui_button",
+        "z": "78bcf1e7a13ccad5",
+        "name": "Capture No Flash",
+        "group": "17985c5cc069e7a8",
+        "order": 1,
+        "width": 3,
+        "height": 1,
+        "passthru": false,
+        "label": "Capture Photo",
+        "tooltip": "Take photo without flash",
+        "color": "blue",
+        "bgcolor": "",
+        "className": "",
+        "icon": "fa-camera",
+        "payload": "1",
+        "payloadType": "num",
+        "topic": "SMILE",
+        "x": 200,
+        "y": 100,
+        "wires": [
+            [
+                "b4c24dbb5be2900c"
+            ]
+        ]
+    },
+    {
+        "id": "248556ea6dc71d27",
+        "type": "ui_button",
+        "z": "78bcf1e7a13ccad5",
+        "name": "Capture With Flash",
+        "group": "17985c5cc069e7a8",
+        "order": 2,
+        "width": 3,
+        "height": 1,
+        "passthru": false,
+        "label": "Flash Photo",
+        "tooltip": "Take photo with flash",
+        "color": "orange",
+        "bgcolor": "",
+        "icon": "fa-bolt",
+        "payload": "1",
+        "payloadType": "num",
+        "topic": "FLASH",
+        "x": 200,
+        "y": 160,
+        "wires": [
+            [
+                "dcb520418ba25fa5"
+            ]
+        ]
+    },
+    {
+        "id": "c1579e9981372a64",
+        "type": "ui_template",
+        "z": "78bcf1e7a13ccad5",
+        "group": "17985c5cc069e7a8",
+        "name": "Static Image Display",
+        "order": 3,
+        "width": 6,
+        "height": 5,
+        "format": "<img ng-src=\"data:image/jpeg;base64,{{msg.payload}}\" style=\"width:100%\"/>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 670,
+        "y": 440,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "37ef55fff6b103e1",
+        "type": "function",
+        "z": "78bcf1e7a13ccad5",
+        "name": "Save Image",
+        "func": "const timestamp = new Date().toISOString().replace(/[:.]/g,'-');\nconst filename = `/data/images/capture_${timestamp}.jpg`;\n\nif (!fs.existsSync('/data/images')) {\n    fs.mkdirSync('/data/images/', { recursive: true });\n}\n\nconst tempFile = '/data/images/latest.tmp';\nfs.writeFileSync(tempFile, msg.payload);\nfs.renameSync(tempFile, '/data/images/latest.jpg');\nfs.writeFileSync(filename, msg.payload);\n\nreturn { payload: msg.payload.toString('base64') };",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "fs",
+                "module": "fs"
+            }
+        ],
+        "x": 430,
+        "y": 440,
+        "wires": [
+            [
+                "c1579e9981372a64"
+            ]
+        ]
+    },
+    {
+        "id": "df235360ba11982e",
+        "type": "ui_button",
+        "z": "78bcf1e7a13ccad5",
+        "name": "View Saved",
+        "group": "17985c5cc069e7a8",
+        "order": 4,
+        "width": 3,
+        "height": 1,
+        "passthru": false,
+        "label": "View Saved",
+        "tooltip": "View last saved image",
+        "color": "green",
+        "bgcolor": "",
+        "className": "",
+        "icon": "fa-image",
+        "payload": "",
+        "payloadType": "date",
+        "x": 230,
+        "y": 220,
+        "wires": [
+            [
+                "5e19d1f035076c54"
+            ]
+        ]
+    },
+    {
+        "id": "5e19d1f035076c54",
+        "type": "file in",
+        "z": "78bcf1e7a13ccad5",
+        "name": "Latest Image",
+        "filename": "/data/images",
+        "filenameType": "str",
+        "format": "",
+        "chunk": false,
+        "sendError": false,
+        "encoding": "",
+        "allProps": false,
+        "x": 430,
+        "y": 220,
+        "wires": [
+            [
+                "cfdb70d48ab2e33e"
+            ]
+        ]
+    },
+    {
+        "id": "cfdb70d48ab2e33e",
+        "type": "function",
+        "z": "78bcf1e7a13ccad5",
+        "name": "Convert to Base64",
+        "func": "msg.payload = msg.payload.toString('base64');\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 630,
+        "y": 220,
+        "wires": [
+            [
+                "e677b0f08d700a01"
+            ]
+        ]
+    },
+    {
+        "id": "e677b0f08d700a01",
+        "type": "ui_template",
+        "z": "78bcf1e7a13ccad5",
+        "group": "17985c5cc069e7a8",
+        "name": "Saved Image View",
+        "order": 5,
+        "width": 6,
+        "height": 5,
+        "format": "<img ng-src=\"data:image/jpeg;base64,{{msg.payload}}\" style=\"width:100%\"/>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "x": 870,
+        "y": 220,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "6ad29a97b6f7023d",
+        "type": "ui_button",
+        "z": "78bcf1e7a13ccad5",
+        "name": "Toggle Live",
+        "group": "17985c5cc069e7a8",
+        "order": 7,
+        "width": 3,
+        "height": 1,
+        "passthru": false,
+        "label": "{{flow.liveMode ? 'Stop Live' : 'Start Live'}}",
+        "tooltip": "Start/stop live preview",
+        "color": "{{flow.liveMode ? 'red' : 'green'}}",
+        "bgcolor": "",
+        "className": "",
+        "icon": "fa-video",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "",
+        "x": 470,
+        "y": 380,
+        "wires": [
+            [
+                "3f80f0bbf4b66895"
+            ]
+        ]
+    },
+    {
+        "id": "3f80f0bbf4b66895",
+        "type": "function",
+        "z": "78bcf1e7a13ccad5",
+        "name": "Toggle Live Function",
+        "func": "// Toggle the live mode state\nflow.set('liveMode', !flow.get('liveMode') || false);\n\n// Prepare the MQTT message\nvar msg_out = {\n    payload: flow.get('liveMode') ? \"ON\" : \"OFF\",\n    topic: \"LIVE\"\n};\n\n// Update button appearance\nmsg.label = flow.get('liveMode') ? \"Stop Live\" : \"Start Live\";\nmsg.color = flow.get('liveMode') ? \"red\" : \"green\";\n\n// Send both the MQTT command and UI update\nreturn [[msg_out, msg]];",
+        "outputs": 2,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 300,
+        "wires": [
+            [
+                "ed907e24c21b9a58"
+            ],
+            [
+                "6ad29a97b6f7023d"
+            ]
+        ]
+    },
+    {
+        "id": "ed907e24c21b9a58",
+        "type": "mqtt out",
+        "z": "78bcf1e7a13ccad5",
+        "name": "Stream Control",
+        "topic": "LIVE",
+        "qos": "2",
+        "retain": false,
+        "broker": "1ce63737bc76b247",
+        "x": 740,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "41822efe0d5fe153",
+        "type": "mqtt in",
+        "z": "78bcf1e7a13ccad5",
+        "name": "Live Image Receiver",
+        "topic": "LIVE_IMAGE",
+        "qos": "1",
+        "datatype": "buffer",
+        "broker": "1ce63737bc76b247",
+        "inputs": 0,
+        "x": 180,
+        "y": 540,
+        "wires": [
+            [
+                "2872ddc54c759a8f"
+            ]
+        ]
+    },
+    {
+        "id": "2872ddc54c759a8f",
+        "type": "function",
+        "z": "78bcf1e7a13ccad5",
+        "name": "Process Live Image",
+        "func": "// Validate image data\nif (!msg.payload || msg.payload.length < 100) {\n    node.warn('Invalid image received');\n    return null;\n}\n\n// Convert to base64\nmsg.payload = msg.payload.toString('base64');\n\n// Add timestamp for debugging\nmsg.timestamp = new Date().toISOString();\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 540,
+        "wires": [
+            [
+                "90285b0bb5fc41f0",
+                "0603166d842dc016"
+            ]
+        ]
+    },
+    {
+        "id": "90285b0bb5fc41f0",
+        "type": "ui_template",
+        "z": "78bcf1e7a13ccad5",
+        "group": "17985c5cc069e7a8",
+        "name": "Live Image Display",
+        "order": 6,
+        "width": 6,
+        "height": 5,
+        "format": "<div style=\"width:100%;height:100%;position:relative\">\n  <img ng-src=\"data:image/jpeg;base64,{{msg.payload}}\" style=\"width:100%;height:100%;object-fit:contain\"/>\n  <div style=\"position:absolute;bottom:0;right:0;background:rgba(0,0,0,0.5);color:white;padding:2px 5px;font-size:12px\">\n    {{msg.timestamp | date:'HH:mm:ss'}}\n  </div>\n</div>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "x": 650,
+        "y": 540,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "0603166d842dc016",
+        "type": "debug",
+        "z": "78bcf1e7a13ccad5",
+        "name": "Live Image Debug",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 650,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "3303e317acd6b2cf",
+        "type": "inject",
+        "z": "78bcf1e7a13ccad5",
+        "name": "Initialize Live Mode",
+        "props": [
+            {
+                "p": "payload",
+                "v": "false",
+                "vt": "bool"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "1",
+        "topic": "",
+        "x": 210,
+        "y": 300,
+        "wires": [
+            [
+                "3f80f0bbf4b66895"
+            ]
+        ]
     }
 ]

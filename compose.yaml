@@ -12,6 +12,21 @@ services:
       - "8883:8883"
     networks:
       - ss-mqttnet
+  nodered:
+    container_name: ss-nodered
+    build:
+      context: ./Node-Red
+    restart: always
+    volumes:
+      - nodered-data:/data
+      - ./Node-Red/images:/data/images
+    ports:
+      - "1880:1880"
+    networks:
+      - ss-mqttnet
 
 networks:
   ss-mqttnet:
+
+volumes:
+  nodered-data:
