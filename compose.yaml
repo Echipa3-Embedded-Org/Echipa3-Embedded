@@ -1,4 +1,17 @@
 services:
+  node_red:
+    container_name: ss-node-red
+    restart: always
+    image: nodered/node-red:3.1.15
+    volumes:
+      - ./node_red_data:/data
+    ports:
+      - "1880:1880"
+    networks:
+      - ss-node-red-net
+    environment:
+      - TZ=Europe/Bucharest
+
   mqtt:
     image: eclipse-mosquitto:2.0.21
     container_name: ss-mqtt
@@ -45,6 +58,7 @@ services:
 networks:
   ss-mqttnet:
   ss-dbnet:
+  ss-node-red-net:
 
 volumes:
   db-data:

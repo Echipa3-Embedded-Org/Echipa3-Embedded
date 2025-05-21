@@ -5,3 +5,4 @@
 mosquitto/certs/
 mosquitto/data/
 mosquitto/log/
+node_red_data/
