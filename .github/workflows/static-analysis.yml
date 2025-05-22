@@ -16,7 +16,7 @@ jobs:
 
       - name: Run cppcheck
         run: |
-          cppcheck --language=c++ --enable=all --template sarif --output-file=cppcheck.sarif $(find . -name "*.ino")
+          cppcheck --language=c++ --enable=all --output-format=sarif --output-file=cppcheck.sarif $(find . -name "*.ino")
 
       - name: Upload SARIF file
         if: always()
