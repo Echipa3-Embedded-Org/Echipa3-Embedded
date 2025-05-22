@@ -7,3 +7,6 @@ mosquitto/data/
 mosquitto/log/
 Node-Red/images
 web-server/backend/node_modules/
+web-server/backend/images/
+
+cat.jpg
