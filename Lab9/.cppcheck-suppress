@@ -1,0 +1,12 @@
+
+---
+
+## 🚫 `.cppcheck-suppress` – pentru a reduce fals pozitivele
+
+```txt
+# Suprimări specifice pentru ESP32/Arduino
+missingIncludeSystem
+unusedFunction
+unreadVariable
+noExplicitConstructor
+missingInclude

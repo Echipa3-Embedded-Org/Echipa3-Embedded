@@ -1,0 +1,24 @@
+name: CI - Static Security & Lint
+
+on: [push, pull_request]
+
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Cppcheck
+      run: sudo apt-get update && sudo apt-get install cppcheck -y
+
+    - name: Run Cppcheck on Arduino .ino files
+      run: |
+        cppcheck --enable=all --inconclusive --std=c++11 --language=c++ \
+        --suppress=missingIncludeSystem --force src/*.ino 2> cppcheck-report.txt
+        cat cppcheck-report.txt
+
+    - name: Arduino Lint
+      uses: arduino/arduino-lint-action@v1
+      with:
+        path: ./src
