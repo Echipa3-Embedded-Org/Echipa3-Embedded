@@ -1,27 +1,35 @@
 name: Static Analysis
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main  # Changed from "master" to match modern default branches
+  pull_request:
 
 jobs:
-  cppcheck:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+  static-analysis:
+    runs-on: ubuntu-latest  # Better to use standard runner
+    permissions:
+      security-events: write  # Only needed permission for SARIF upload
 
-      - name: Install latest cppcheck
-        run: |
-          # Download and extract the latest cppcheck binary
-          wget https://github.com/danmar/cppcheck/releases/download/2.14.1/cppcheck-2.14.1-x86_64-linux.tar.gz
-          tar -xzvf cppcheck-2.14.1-x86_64-linux.tar.gz
-          sudo cp cppcheck-2.14.1-x86_64-linux/cppcheck /usr/local/bin/
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cppcheck
+        run: sudo apt-get install -y cppcheck
 
       - name: Run cppcheck
         run: |
-          cppcheck --language=c++ --enable=all --output-format=sarif --output-file=cppcheck.sarif $(find . -name "*.ino")
+          # Specific file patterns for Arduino projects
+          find . -name "*.ino" -exec cppcheck --enable=all --xml --xml-version=2 {} + 2> report.xml
 
-      - name: Upload SARIF file
-        if: always()
+      - name: Convert to SARIF
+        uses: Flast/cppcheck-sarif@v2
+        with:
+          input: report.xml
+          output: report.sarif
+
+      - name: Upload results
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: cppcheck.sarif
+          sarif_file: report.sarif
