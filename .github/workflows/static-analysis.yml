@@ -9,12 +9,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install latest cppcheck
+      - name: Install cppcheck
         run: |
-          # Download and extract the latest cppcheck binary
-          wget https://github.com/danmar/cppcheck/releases/download/2.14.1/cppcheck-2.14.1-x86_64-linux.tar.gz
-          tar -xzvf cppcheck-2.14.1-x86_64-linux.tar.gz
-          sudo cp cppcheck-2.14.1-x86_64-linux/cppcheck /usr/local/bin/
+          sudo apt-get update
+          sudo apt-get install -y cppcheck
 
       - name: Run cppcheck
         run: |
