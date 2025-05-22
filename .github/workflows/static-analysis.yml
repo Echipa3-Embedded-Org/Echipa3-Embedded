@@ -1,0 +1,25 @@
+name: Static Analysis
+
+on: [push, pull_request]
+
+jobs:
+  cppcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install cppcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install cppcheck
+
+      - name: Run cppcheck
+        run: |
+          cppcheck --language=c++ --enable=all --template sarif --output-file=cppcheck.sarif $(find . -name "*.ino")
+
+      - name: Upload SARIF file
+        if: always()
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: cppcheck.sarif
