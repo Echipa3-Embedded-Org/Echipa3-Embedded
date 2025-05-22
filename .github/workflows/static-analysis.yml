@@ -9,10 +9,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install cppcheck
+      - name: Install latest cppcheck
         run: |
-          sudo apt-get update
-          sudo apt-get install cppcheck
+          # Download and extract the latest cppcheck binary
+          wget https://github.com/danmar/cppcheck/releases/download/2.14.1/cppcheck-2.14.1-x86_64-linux.tar.gz
+          tar -xzvf cppcheck-2.14.1-x86_64-linux.tar.gz
+          sudo cp cppcheck-2.14.1-x86_64-linux/cppcheck /usr/local/bin/
 
       - name: Run cppcheck
         run: |
@@ -20,6 +22,6 @@ jobs:
 
       - name: Upload SARIF file
         if: always()
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: cppcheck.sarif
