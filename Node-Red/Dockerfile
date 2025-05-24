@@ -7,6 +7,7 @@ RUN npm install \
     node-red-node-base64
 
 COPY main-flow-config.json /data/flows.json
+COPY main-flow-config.json /default-flows/flows.json
 
 # Expose the default Node-RED port
 EXPOSE 1880

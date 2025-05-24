@@ -18,6 +18,13 @@ spec:
       labels:
         app: nodered
     spec:
+    initContainers:
+    - name: nodered-init-copy-flows
+      image: 2001slavic/ss-nodered:latest
+      command: ["/bin/sh", "-c", "cp /default-flows/flows.json /data/flows.json"]
+      volumeMounts:
+      - name: nodered-data
+        mountPath: /data
       containers:
       - name: nodered
         image: 2001slavic/ss-nodered:latest
@@ -50,7 +57,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: nodered-service
+  name: ss-nodered-service
   namespace: ss
 spec:
   type: NodePort
@@ -129,7 +136,6 @@ spec:
           readOnly: true
         - name: mosquitto-log
           mountPath: /mosquitto/log
-          readOnly: true
           
       volumes:
       - name: mosquitto-data
@@ -137,7 +143,7 @@ spec:
           claimName: mosquitto-pvc
       - name: mosquitto-certs
         secret:
-          secretName: mosquitto-certificates
+          secretName: mosquitto-certs
       - name: mosquitto-log
         hostPath:
           path: /mnt/ss-proiect/mosquitto/images
@@ -148,7 +154,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mosquitto-service
+  name: ss-mosquitto-service
   namespace: ss
 spec:
   type: NodePort
@@ -158,18 +164,6 @@ spec:
   - port: 30001
     targetPort: mosquitto-port
     nodePort: 30001
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: nodered-pvc
-  namespace: ss
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

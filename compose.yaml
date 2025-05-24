@@ -1,7 +1,7 @@
 services:
   mqtt:
     image: eclipse-mosquitto:2.0.21
-    container_name: ss-mqtt
+    container_name: ss-mosquitto-service
     restart: always
     volumes:
       - ./mosquitto/config:/mosquitto/config
@@ -13,7 +13,7 @@ services:
     networks:
       - ss-mqttnet
   nodered:
-    container_name: ss-nodered
+    container_name: ss-nodered-service
     build:
       context: ./Node-Red
     restart: always
