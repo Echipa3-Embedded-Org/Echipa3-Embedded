@@ -33,7 +33,7 @@
         "id": "1ce63737bc76b247",
         "type": "mqtt-broker",
         "name": "mosquitto-mqtt-v5",
-        "broker": "ss-mqtt",
+        "broker": "ss-mosquitto-service",
         "port": "8883",
         "tls": "9621619999636e3c",
         "clientid": "",
