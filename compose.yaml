@@ -20,6 +20,7 @@ services:
     volumes:
       - nodered-data:/data
       - ./Node-Red/images:/data/images
+      - ./Node-Red/certs:/certs:ro
     ports:
       - "1880:1880"
     networks:
