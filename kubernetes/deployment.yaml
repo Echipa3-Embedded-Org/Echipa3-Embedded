@@ -18,13 +18,13 @@ spec:
       labels:
         app: nodered
     spec:
-    initContainers:
-    - name: nodered-init-copy-flows
-      image: 2001slavic/ss-nodered:latest
-      command: ["/bin/sh", "-c", "cp /default-flows/flows.json /data/flows.json"]
-      volumeMounts:
-      - name: nodered-data
-        mountPath: /data
+      initContainers:
+      - name: nodered-init-copy-flows
+        image: 2001slavic/ss-nodered:latest
+        command: ["/bin/sh", "-c", "cp /default-flows/flows.json /data/flows.json"]
+        volumeMounts:
+        - name: nodered-data
+          mountPath: /data
       containers:
       - name: nodered
         image: 2001slavic/ss-nodered:latest
@@ -37,6 +37,7 @@ spec:
           mountPath: /data
         - name: nodered-images
           mountPath: /data/images
+          readOnly: false
         - name: nodered-certs
           mountPath: /certs
           readOnly: true
@@ -64,7 +65,7 @@ spec:
   selector:
     app: nodered
   ports:
-  - port: 30000
+  - port: 1880
     targetPort: nodered-port
     nodePort: 30000
 ---
@@ -84,6 +85,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: mosquitto-config
+  namespace: ss
 data:
   mosquitto.conf: |
     # Don't allow unauthenticated users
@@ -129,6 +131,9 @@ spec:
         - name: mosquitto-port
           containerPort: 8883
         volumeMounts:
+        - name: mosquitto-config
+          mountPath: /mosquitto/config/mosquitto.conf
+          subPath: mosquitto.conf
         - name: mosquitto-data
           mountPath: /mosquitto/data
         - name: mosquitto-certs
@@ -136,8 +141,11 @@ spec:
           readOnly: true
         - name: mosquitto-log
           mountPath: /mosquitto/log
-          
+          readOnly: false
       volumes:
+      - name: mosquitto-config
+        configMap:
+          name: mosquitto-config
       - name: mosquitto-data
         persistentVolumeClaim:
           claimName: mosquitto-pvc
@@ -146,7 +154,7 @@ spec:
           secretName: mosquitto-certs
       - name: mosquitto-log
         hostPath:
-          path: /mnt/ss-proiect/mosquitto/images
+          path: /mnt/ss-proiect/mosquitto/log
           type: DirectoryOrCreate
 
       restartPolicy: Always
@@ -161,7 +169,7 @@ spec:
   selector:
     app: mosquitto
   ports:
-  - port: 30001
+  - port: 8883
     targetPort: mosquitto-port
     nodePort: 30001
 ---
