@@ -20,3 +20,11 @@ After the file was modified, restart the service with: node-red-restart
 Notes:
   - The browser saves the session and the user is not required to login each page refresh
   - Node-RED Dashboard security supports only one user
+
+
+Authentication options:
+  - Built in node-Red basic authentication and OAuth (Google, Twitter, etc) implemented but does not offer multi-user capabilities
+  - Flow Fuse (node-Red instance hosting, only achieved using DNS routing, little to no documentation about local hosting, lack of permanent free options)
+  - Linux Identity Management (shadow passwords, Keystone/Keycloack, IPA, LDAP/RADIUS/TACACS) are useless if node-Red doesn't support it
+  - Authentication on Proxy for access (impractical since the hosting server is local anyway with limited access from outside)
+  - Authentication against a local database service (with lack of proper documentation could not find the proper node-red store widgets that actually work)
