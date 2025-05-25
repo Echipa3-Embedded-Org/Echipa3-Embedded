@@ -436,34 +436,31 @@ bool downloadAndApplyFirmware() {
     
     Serial.printf("Downloading firmware: %d bytes\n", contentLength);
     
-    if (!Update.begin(contentLength)) {
-        Serial.println("Not enough space for update");
+    // Allocate buffer to store entire firmware for signature verification
+    uint8_t* firmwareBuffer = (uint8_t*)malloc(contentLength);
+    if (!firmwareBuffer) {
+        Serial.println("Failed to allocate memory for firmware");
         http.end();
         return false;
     }
     
     WiFiClient* client = http.getStreamPtr();
-    size_t written = 0;
+    size_t downloaded = 0;
     uint8_t buffer[1024];
     
-    while (http.connected() && written < contentLength) {
+    // Download entire firmware into memory first
+    while (http.connected() && downloaded < contentLength) {
         size_t available = client->available();
         if (available > 0) {
             int bytesToRead = min(available, sizeof(buffer));
             int bytesRead = client->readBytes(buffer, bytesToRead);
             
             if (bytesRead > 0) {
-                size_t bytesWritten = Update.write(buffer, bytesRead);
-                if (bytesWritten != bytesRead) {
-                    Serial.println("Write failed");
-                    Update.abort();
-                    http.end();
-                    return false;
-                }
-                written += bytesWritten;
+                memcpy(firmwareBuffer + downloaded, buffer, bytesRead);
+                downloaded += bytesRead;
                 
-                if (written % 8192 == 0) {
-                    Serial.printf("Progress: %.1f%%\n", (float)written / contentLength * 100);
+                if (downloaded % 8192 == 0) {
+                    Serial.printf("Download progress: %.1f%%\n", (float)downloaded / contentLength * 100);
                 }
             }
         }
@@ -472,8 +469,47 @@ bool downloadAndApplyFirmware() {
     
     http.end();
     
-    if (written != contentLength) {
-        Serial.printf("Download incomplete: %d/%d\n", written, contentLength);
+    if (downloaded != contentLength) {
+        Serial.printf("Download incomplete: %d/%d\n", downloaded, contentLength);
+        free(firmwareBuffer);
+        return false;
+    }
+    
+    Serial.println("Download complete, verifying signature...");
+    
+    // Extract signature from signed firmware
+    // espsecure.py appends signature to the end of the file
+    // Last 256 bytes are typically the signature for RSA-2048
+    if (contentLength < 256) {
+        Serial.println("Firmware too small to contain signature");
+        free(firmwareBuffer);
+        return false;
+    }
+    
+    size_t firmwareSize = contentLength - 256;  // Actual firmware size
+    uint8_t* signature = firmwareBuffer + firmwareSize;  // Last 256 bytes
+    
+    // Verify signature
+    if (!verifyFirmwareSignature(firmwareBuffer, firmwareSize, signature, 256)) {
+        Serial.println("Signature verification failed!");
+        free(firmwareBuffer);
+        return false;
+    }
+    
+    Serial.println("Signature verified successfully!");
+    
+    // Now apply the update with the verified firmware (without signature bytes)
+    if (!Update.begin(firmwareSize)) {
+        Serial.println("Not enough space for update");
+        free(firmwareBuffer);
+        return false;
+    }
+    
+    size_t written = Update.write(firmwareBuffer, firmwareSize);
+    free(firmwareBuffer);
+    
+    if (written != firmwareSize) {
+        Serial.printf("Write failed: %d/%d bytes\n", written, firmwareSize);
         Update.abort();
         return false;
     }
@@ -523,33 +559,6 @@ void performOTAUpdate() {
     }
     
     checkForOTAUpdate();
-}
-
-// ================== Main Functions ==================
-void setup() {
-  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
-  Serial.begin(115200);
-  
-  readCredentials();
-
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, LOW);
-
-  connectToWiFi();
-  performOTAUpdate();
-  setupCamera();
-
-  // Configure secure client with certificates
-  net.setCACert(SERVER_CA);
-  net.setCertificate(CLIENT_CRT);
-  net.setPrivateKey(CLIENT_KEY);
-
-  // Initialize MQTT client
-  client.begin(MQTT_SERVER, MQTT_PORT, net);
-  client.onMessage(messageReceived);
-  connectToMQTT();
-
-  Serial.println("System initialized");
 }
 
 //////////////////////////////////////////////////////////////////////////////////
