@@ -2,10 +2,13 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <MQTT.h>
-#include "secrets.h"
+#include <Preferences.h>
 #include "esp_camera.h"
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
+
+#define SECRETS_NAMESPACE "mqtt-secrets"
+#define READ_ONLY_SECRETS_NAMESPACE true
 
 #define LED_BUILTIN 4
 
@@ -27,6 +30,87 @@
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
+// Credentials
+char SSID[64];
+char PASSWORD[64];
+char MQTT_SERVER[256];
+int32_t MQTT_PORT;
+char SERVER_CA[2048];
+char CLIENT_CRT[2048];
+char CLIENT_KEY[2048];
+char PUB_SIGN_KEY[2048];
+char OTA_BASE_URL[256];
+
+Preferences preferences;
+
+bool creds_read;
+
+bool readCredentials() {
+    Serial.print("Reading credentials... ");
+
+    preferences.begin(SECRETS_NAMESPACE, READ_ONLY_SECRETS_NAMESPACE);
+
+    strcpy(SSID, preferences.getString("SSID", "").c_str());
+    if (SSID[0] == '\0') {
+        Serial.println("fail. SSID.");
+        preferences.end();
+        return false;
+    }
+    strcpy(PASSWORD, preferences.getString("PASSWORD", "").c_str());
+    if (PASSWORD[0] == '\0') {
+        Serial.println("fail. PASSWORD.");
+        preferences.end();
+        return false;
+    }
+    strcpy(MQTT_SERVER, preferences.getString("MQTT_SERVER", "").c_str());
+    if (MQTT_SERVER[0] == '\0') {
+        Serial.println("fail. MQTT_SERVER.");
+        preferences.end();
+        return false;
+    }
+    MQTT_PORT = preferences.getInt("MQTT_PORT", 0);
+    if (MQTT_PORT == 0) {
+        Serial.println("fail. MQTT_PORT.");
+        preferences.end();
+        return false;
+    }
+    strcpy(OTA_BASE_URL, preferences.getString("OTA_BASE_URL", "").c_str());
+    if (OTA_BASE_URL[0] =='\0') {
+        Serial.println("fail. OTA_BASE_URL.");
+        preferences.end();
+        return;
+    }
+    strcpy(SERVER_CA, preferences.getString("SERVER_CA", "").c_str());
+    if (SERVER_CA[0] == '\0') {
+        Serial.println("fail. SERVER_CA.");
+        preferences.end();
+        return false;
+    }
+    strcpy(CLIENT_CRT, preferences.getString("CLIENT_CRT", "").c_str());
+    if (CLIENT_CRT[0] == '\0') {
+        Serial.println("fail. CLIENT_CRT.");
+        preferences.end();
+        return false;
+    }
+    strcpy(CLIENT_KEY, preferences.getString("CLIENT_KEY", "").c_str());
+    if (CLIENT_KEY[0] == '\0') {
+        Serial.println("fail. CLIENT_KEY.");
+        preferences.end();
+        return false;
+    }
+    strcpy(PUB_SIGN_KEY, preferences.getString("PUB_SIGN_KEY", "").c_str());
+    if (PUB_SIGN_KEY[0] == '\0') {
+        Serial.println("fail. PUB_SIGN_KEY.");
+        preferences.end();
+        return false;
+    }
+
+    Serial.println("OK. ");
+
+    preferences.end();
+    return true;
+}
+
 void setUp(void) {
     // set stuff up here
 }
@@ -35,13 +119,10 @@ void tearDown(void) {
     // clean stuff up here
 }
 
-void wifi_secrets() {
-    #ifndef SSID
-    TEST_FAIL_MESSAGE("SSID not defined");
-    #endif
-    #ifndef PASSWORD
-    TEST_FAIL_MESSAGE("WiFi PASSWORD not defined");
-    #endif
+void test_creds() {
+    if (!creds_read) {
+        TEST_FAIL_MESSAGE("Credentials read failed");
+    }
 }
 
 void wifi_connect() {
@@ -94,15 +175,6 @@ void camera_init() {
     TEST_ASSERT_EQUAL(ESP_OK, err);
     err = esp_camera_deinit();
     TEST_ASSERT_EQUAL(ESP_OK, err);
-}
-
-void mqtt_secrets() {
-    #ifndef MQTT_SERVER
-    TEST_FAIL_MESSAGE("MQTT_SERVER not defined");
-    #endif
-    #ifndef MQTT_PORT
-    TEST_FAIL_MESSAGE("MQTT_PORT not defined");
-    #endif
 }
 
 void mqtt_connect() {
@@ -294,16 +366,16 @@ void camera_quality_change() {
 void run_tests() {
     UNITY_BEGIN();
 
-    RUN_TEST(wifi_secrets);
-    RUN_TEST(wifi_connect);
     RUN_TEST(camera_init);
-    RUN_TEST(mqtt_secrets);
-    RUN_TEST(mqtt_connect);
-    RUN_TEST(mqtt_publish);
-    RUN_TEST(mqtt_subscribe);
     RUN_TEST(camera_capture);
     RUN_TEST(camera_quality_change);
-
+    RUN_TEST(test_creds);
+    if (creds_read) {
+        RUN_TEST(wifi_connect);
+        RUN_TEST(mqtt_connect);
+        RUN_TEST(mqtt_publish);
+        RUN_TEST(mqtt_subscribe);
+    }
     UNITY_END();
 }
 
@@ -312,6 +384,7 @@ void run_tests() {
   */
 void setup() {
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
+    creds_read = readCredentials();
     // Wait ~2 seconds before the Unity test runner
     // establishes connection with a board Serial interface
     delay(2000);

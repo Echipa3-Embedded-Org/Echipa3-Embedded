@@ -1,0 +1,92 @@
+name: Deploy to DigitalOcean Kubernetes and static check platformIO code.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  login-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4.2.2
+      
+      - name: Log in to Docker Hub
+        uses: docker/login-action@3.4.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME_2001SLAVIC }}
+          password: ${{ secrets.DOCKERHUB_TOKEN_2001SLAVIC }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@6.17.0
+        with:
+          context: ./Node-Red
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME_2001SLAVIC }}/ss-nodered:${{ github.sha }} , ${{ secrets.DOCKERHUB_USERNAME_2001SLAVIC }}/ss-nodered:latest
+
+      - name: Create version.txt
+        run: |
+          mkdir -p dist
+          echo "${{ github.sha }}" > dist/version.txt
+      
+      - name: Set OTA Version in platformio.ini
+        run: |
+          sed -i "s|@OTA_VERSION@|${{ github.sha }}|" platformio/platformio.ini
+
+      - name: Set up Python
+        uses: actions/setup-python@v5.6.0
+        with:
+          python-version: '3.12.3'
+      
+      - name: Install dependencies
+        run: pip install --upgrade platformio esptool
+
+      - name: Run PlatformIO check
+        run: platformio check -d platformio -e esp32cam
+
+      - name: Run PlatformIO provisioning code check
+        run: platformio check -d platformio-provisioning -e esp32cam
+
+      - name: Build firmware
+        run: platformio run -d platformio/
+
+      - name: Sign firmware using espsecure.py
+        run: |
+          mkdir -p dist
+          echo "${{ secrets.OTA_SIGNING_KEY_2001SLAVIC }}" > signing_key.pem
+          cp platformio/.pio/build/*/firmware.bin dist/
+          espsecure.py sign_data --version 2 \
+            --keyfile signing_key.pem \
+            --output dist/firmware_signed.bin \
+            dist/firmware.bin
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2.5.1
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN_2001SLAVIC }}
+
+      - name: Save DigitalOcean kubeconfig with short-lived credentials
+        run: doctl kubernetes cluster kubeconfig save --expiry-seconds 600 k8s-1-32-2-do-1-fra1-1748115745699
+
+      - name: Cleanup all resources in namespace
+        run: kubectl delete all,configmaps,pvc --all -n ss
+
+      - name: Deploy to DigitalOcean Kubernetes
+        run: kubectl apply -f kubernetes/deployment.yaml
+
+      - name: Upload files to nginx pod
+        run: |
+          # Get the nginx pod name
+          POD_NAME=$(kubectl get pods -n ss -l app=nginx -o jsonpath='{.items[0].metadata.name}')
+          
+          # Wait for pod to be ready
+          kubectl wait -n ss --for=condition=ready pod/$POD_NAME --timeout=60s
+          
+          # Create ota directory and copy files
+          kubectl exec -n ss $POD_NAME -- mkdir -p /usr/share/nginx/html/ota
+          kubectl cp -n ss dist/firmware_signed.bin $POD_NAME:/usr/share/nginx/html/ota/firmware.bin
+          kubectl cp -n ss dist/version.txt $POD_NAME:/usr/share/nginx/html/ota/version.txt
+          
+          # Verify files were copied
+          kubectl exec -n ss $POD_NAME -- ls -la /usr/share/nginx/html/ota/
