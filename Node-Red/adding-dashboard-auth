@@ -1,0 +1,22 @@
+Node-RED Dashboard security allows for basic authentication when accessing the UI.
+
+Setup:
+
+Edit the file: ~/.node-red/settings.js
+
+Find the commented line starting with: httpNodeAuth
+
+Uncomment and modify the password hash
+
+To generate a hash for any cleartext password, node-red has a built in command: node-red admin hash-pw
+
+This command does the following:
+  - waits for user input (the password written in clear-text)
+  - generates a hash in console for the input
+
+
+After the file was modified, restart the service with: node-red-restart
+
+Notes:
+  - The browser saves the session and the user is not required to login each page refresh
+  - Node-RED Dashboard security supports only one user
