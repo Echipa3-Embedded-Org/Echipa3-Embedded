@@ -2,6 +2,7 @@
 *.key
 *.csr
 *.srl
+*.pem
 mosquitto/certs/
 mosquitto/data/
 mosquitto/log/
@@ -11,4 +12,7 @@ web-server/backend/images/
 platformio/.pio
 platformio/.vscode
 platformio/include/secrets.h
+platformio-provisioning/.pio
+platformio-provisioning/.vscode
+platformio-provisioning/include/secrets.h
 cat.jpg

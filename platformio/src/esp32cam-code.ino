@@ -2,12 +2,32 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <MQTT.h>
+#include <Preferences.h>
+#include <HTTPClient.h>
+#include <Update.h>
+#include <mbedtls/md.h>
+#include <mbedtls/pk.h>
+#include <mbedtls/entropy.h>
+#include <mbedtls/ctr_drbg.h>
 #include "esp_camera.h"
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 
-// defines SSID, PASSWORD, MQTT_SERVER, MQTT_PORT, SERVER_CA, SERVER_CRT, SERVER_KEY
-#include "secrets.h"
+#define SECRETS_NAMESPACE "mqtt-secrets"
+#define READ_ONLY_SECRETS_NAMESPACE true
+
+#define OTA_VERSION "@OTA_VERSION@"
+
+// Credentials
+char SSID[64];
+char PASSWORD[64];
+char MQTT_SERVER[256];
+int32_t MQTT_PORT;
+char SERVER_CA[2048];
+char CLIENT_CRT[2048];
+char CLIENT_KEY[2048];
+char PUB_SIGN_KEY[2048];
+char OTA_BASE_URL[256];
 
 // MQTT Broker details
 const char* topic_PHOTO = "SMILE";
@@ -51,6 +71,7 @@ const int FLASH_DURATION = 500; // Increased from instantaneous to 500ms
 
 WiFiClientSecure net;
 MQTTClient client;
+Preferences preferences;
 
 
 void setupCamera() {
@@ -261,18 +282,261 @@ void checkFlashTimeout() {
     flashActive = false;
   }
 }
-  
 
+void readCredentials() {
+  Serial.print("Reading credentials... ");
+
+  preferences.begin(SECRETS_NAMESPACE, READ_ONLY_SECRETS_NAMESPACE);
+
+  strcpy(SSID, preferences.getString("SSID", "").c_str());
+  if (SSID[0] == '\0') {
+    Serial.println("fail. SSID.");
+    preferences.end();
+    return;
+  }
+  strcpy(PASSWORD, preferences.getString("PASSWORD", "").c_str());
+  if (PASSWORD[0] == '\0') {
+    Serial.println("fail. PASSWORD.");
+    preferences.end();
+    return;
+  }
+  strcpy(MQTT_SERVER, preferences.getString("MQTT_SERVER", "").c_str());
+  if (MQTT_SERVER[0] =='\0') {
+    Serial.println("fail. MQTT_SERVER.");
+    preferences.end();
+    return;
+  }
+  MQTT_PORT = preferences.getInt("MQTT_PORT", 0);
+  if (MQTT_PORT == 0) {
+    Serial.println("fail. MQTT_PORT.");
+    preferences.end();
+    return;
+  }
+  strcpy(OTA_BASE_URL, preferences.getString("OTA_BASE_URL", "").c_str());
+  if (OTA_BASE_URL[0] =='\0') {
+    Serial.println("fail. OTA_BASE_URL.");
+    preferences.end();
+    return;
+  }
+  strcpy(SERVER_CA, preferences.getString("SERVER_CA", "").c_str());
+  if (SERVER_CA[0] == '\0') {
+    Serial.println("fail. SERVER_CA.");
+    preferences.end();
+    return;
+  }
+  strcpy(CLIENT_CRT, preferences.getString("CLIENT_CRT", "").c_str());
+  if (CLIENT_CRT[0] == '\0') {
+    Serial.println("fail. CLIENT_CRT.");
+    preferences.end();
+    return;
+  }
+  strcpy(CLIENT_KEY, preferences.getString("CLIENT_KEY", "").c_str());
+  if (CLIENT_KEY[0] == '\0') {
+    Serial.println("fail. CLIENT_KEY.");
+    preferences.end();
+    return;
+  }
+  strcpy(PUB_SIGN_KEY, preferences.getString("PUB_SIGN_KEY", "").c_str());
+  if (PUB_SIGN_KEY[0] == '\0') {
+    Serial.println("fail. PUBLIC_SIGNING_KEY.");
+    preferences.end();
+    return;
+  }
+  
+  Serial.println("OK. ");
+
+  preferences.end();
+}
+
+String getRemoteVersion() {
+    HTTPClient http;
+    char ota_version_url[256];
+    sprintf(ota_version_url, "%s/%s", OTA_BASE_URL, "version.txt");
+    http.begin(ota_version_url);
+    int httpCode = http.GET();
+    
+    if (httpCode == HTTP_CODE_OK) {
+        String version = http.getString();
+        version.trim();
+        http.end();
+        return version;
+    }
+    
+    http.end();
+    return "";
+}
+
+bool verifyFirmwareSignature(const uint8_t* firmware, size_t firmwareSize, const uint8_t* signature, size_t signatureSize) {
+    mbedtls_pk_context pk;
+    mbedtls_entropy_context entropy;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    
+    mbedtls_pk_init(&pk);
+    mbedtls_entropy_init(&entropy);
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+    
+    int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, NULL, 0);
+    if (ret != 0) {
+        Serial.printf("Crypto seed failed: %d\n", ret);
+        goto cleanup;
+    }
+    
+    ret = mbedtls_pk_parse_public_key(&pk, (const unsigned char*)PUB_SIGN_KEY, strlen(PUB_SIGN_KEY) + 1);
+    if (ret != 0) {
+        Serial.printf("Public key parse failed: %d\n", ret);
+        goto cleanup;
+    }
+    
+    // Calculate SHA-256 hash
+    unsigned char hash[32];
+    mbedtls_md_context_t md_ctx;
+    mbedtls_md_init(&md_ctx);
+    
+    ret = mbedtls_md_setup(&md_ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), 0);
+    if (ret != 0) {
+        mbedtls_md_free(&md_ctx);
+        goto cleanup;
+    }
+    
+    mbedtls_md_starts(&md_ctx);
+    mbedtls_md_update(&md_ctx, firmware, firmwareSize);
+    mbedtls_md_finish(&md_ctx, hash);
+    mbedtls_md_free(&md_ctx);
+    
+    // Verify signature
+    ret = mbedtls_pk_verify(&pk, MBEDTLS_MD_SHA256, hash, 32, signature, signatureSize);
+    
+    cleanup:
+    mbedtls_pk_free(&pk);
+    mbedtls_entropy_free(&entropy);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    
+    return ret == 0;
+}
+
+bool downloadAndApplyFirmware() {
+    HTTPClient http;
+    char ota_firmware_url[256];
+    sprintf(ota_firmware_url, "%s/%s", OTA_BASE_URL, "firmware.bin");
+    http.begin(ota_firmware_url);
+    int httpCode = http.GET();
+    
+    if (httpCode != HTTP_CODE_OK) {
+        Serial.printf("Download failed: %d\n", httpCode);
+        http.end();
+        return false;
+    }
+    
+    int contentLength = http.getSize();
+    if (contentLength <= 0) {
+        Serial.println("Invalid firmware size");
+        http.end();
+        return false;
+    }
+    
+    Serial.printf("Downloading firmware: %d bytes\n", contentLength);
+    
+    if (!Update.begin(contentLength)) {
+        Serial.println("Not enough space for update");
+        http.end();
+        return false;
+    }
+    
+    WiFiClient* client = http.getStreamPtr();
+    size_t written = 0;
+    uint8_t buffer[1024];
+    
+    while (http.connected() && written < contentLength) {
+        size_t available = client->available();
+        if (available > 0) {
+            int bytesToRead = min(available, sizeof(buffer));
+            int bytesRead = client->readBytes(buffer, bytesToRead);
+            
+            if (bytesRead > 0) {
+                size_t bytesWritten = Update.write(buffer, bytesRead);
+                if (bytesWritten != bytesRead) {
+                    Serial.println("Write failed");
+                    Update.abort();
+                    http.end();
+                    return false;
+                }
+                written += bytesWritten;
+                
+                if (written % 8192 == 0) {
+                    Serial.printf("Progress: %.1f%%\n", (float)written / contentLength * 100);
+                }
+            }
+        }
+        delay(1);
+    }
+    
+    http.end();
+    
+    if (written != contentLength) {
+        Serial.printf("Download incomplete: %d/%d\n", written, contentLength);
+        Update.abort();
+        return false;
+    }
+    
+    if (Update.end(true)) {
+        Serial.println("Update successful!");
+        return true;
+    } else {
+        Serial.printf("Update failed: %s\n", Update.errorString());
+        return false;
+    }
+}
+
+bool checkForOTAUpdate() {
+    Serial.println("Checking for updates...");
+    
+    String remoteVersion = getRemoteVersion();
+    if (remoteVersion.isEmpty()) {
+        Serial.println("Failed to get remote version");
+        return false;
+    }
+    
+    Serial.printf("Current: %s, Remote: %s\n", OTA_VERSION, remoteVersion.c_str());
+    
+    if (remoteVersion.equals(OTA_VERSION)) {
+        Serial.println("Already up to date");
+        return false;
+    }
+    
+    Serial.println("New version available, updating...");
+    
+    if (downloadAndApplyFirmware()) {
+        Serial.println("Restarting in 3 seconds...");
+        delay(3000);
+        ESP.restart();
+        return true;
+    }
+    
+    Serial.println("Update failed");
+    return false;
+}
+
+void performOTAUpdate() {
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("WiFi not connected");
+        return;
+    }
+    
+    checkForOTAUpdate();
+}
 
 // ================== Main Functions ==================
 void setup() {
-  Serial.begin(115200);
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
+  Serial.begin(115200);
+  
+  readCredentials();
 
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW);
 
   connectToWiFi();
+  performOTAUpdate();
   setupCamera();
 
   // Configure secure client with certificates
