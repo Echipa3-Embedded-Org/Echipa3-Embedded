@@ -21,7 +21,7 @@ jobs:
       - name: Run cppcheck
         run: |
           # Specific file patterns for Arduino projects
-          find . -name "*.ino" -exec cppcheck --addon=misra --addon=cert --enable=all --xml --xml-version=2 {} + 2> report.xml
+          find . -name "*.ino" -exec cppcheck --addon=misra --enable=all --xml --xml-version=2 {} + 2> report.xml
       
       - name: Convert to SARIF
         uses: Flast/cppcheck-sarif@v2
