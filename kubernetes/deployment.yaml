@@ -101,7 +101,31 @@ data:
 
     flowFile: 'flows.json',
     flowFilePretty: true,
-    httpNodeAuth: {user:"student",pass:"$2y$08$jUBlsrZKT5Q7aTNph5klFe7yB9pMEbqbq0PqYFiimbr1.gaqC1/l2"},
+
+    // Protects the editor UI (flows page)
+    adminAuth: {
+        type: "credentials",
+        users: [
+            {
+                username: "admin",
+                password: "$2y$08$jUBlsrZKT5Q7aTNph5klFe7yB9pMEbqbq0PqYFiimbr1.gaqC1/l2",
+                permissions: "*"
+            },
+            {
+                username: "student",
+                password: "$2y$08$jUBlsrZKT5Q7aTNph5klFe7yB9pMEbqbq0PqYFiimbr1.gaqC1/l2",
+                permissions: "read"
+            }
+        ]
+    },
+
+    // Protects HTTP endpoints (like REST APIs served by http nodes)
+    httpNodeAuth: {user:"student", pass:"$2y$08$jUBlsrZKT5Q7aTNph5klFe7yB9pMEbqbq0PqYFiimbr1.gaqC1/l2"},
+
+    https: {
+        key: require("fs").readFileSync('/certs/privkey.pem'),
+        cert: require("fs").readFileSync('/certs/fullchain.pem')
+    },
 
     diagnostics: {
         enabled: true,
@@ -122,29 +146,24 @@ data:
     externalModules: {
     },
     editorTheme: {
-
         palette: {
         },
-
         projects: {
             enabled: false,
             workflow: {
                 mode: "manual"
             }
         },
-
         codeEditor: {
             lib: "monaco",
             options: {
             }
         },
-
         markdownEditor: {
             mermaid: {
                 enabled: true
             }
         },
-
         multiplayer: {
             enabled: false
         },
@@ -155,7 +174,6 @@ data:
     functionTimeout: 0,
     functionGlobalContext: {
     },
-
 
     debugMaxLength: 1000,
     mqttReconnectTime: 15000,
