@@ -3,6 +3,8 @@
 #include <WiFiClientSecure.h>
 #include <MQTT.h>
 #include <Preferences.h>
+#include <HTTPClient.h>
+#include <mbedtls/sha256.h>
 #include "esp_camera.h"
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
@@ -77,7 +79,7 @@ bool readCredentials() {
     if (OTA_BASE_URL[0] =='\0') {
         Serial.println("fail. OTA_BASE_URL.");
         preferences.end();
-        return;
+        return false;
     }
     strcpy(SERVER_CA, preferences.getString("SERVER_CA", "").c_str());
     if (SERVER_CA[0] == '\0') {
@@ -356,6 +358,119 @@ void camera_quality_change() {
     TEST_ASSERT_EQUAL(ESP_OK, err);
 }
 
+// Function to calculate SHA256 checksum of downloaded data
+String calculateSHA256(uint8_t* data, size_t len) {
+    mbedtls_sha256_context ctx;
+    unsigned char digest[32];
+    char sha256String[65] = {0};
+    
+    mbedtls_sha256_init(&ctx);
+    mbedtls_sha256_starts(&ctx, 0); // 0 for SHA256
+    mbedtls_sha256_update(&ctx, data, len);
+    mbedtls_sha256_finish(&ctx, digest);
+    mbedtls_sha256_free(&ctx);
+    
+    for (int i = 0; i < 32; i++) {
+        sprintf(&sha256String[i * 2], "%02x", digest[i]);
+    }
+    
+    return String(sha256String);
+}
+
+// Function to fetch string from URL
+String fetchString(const String& url) {
+    HTTPClient http;
+    http.begin(url);
+    
+    int httpCode = http.GET();
+    String payload = "";
+    
+    if (httpCode == HTTP_CODE_OK) {
+        payload = http.getString();
+        payload.trim(); // Remove any whitespace/newlines
+    } else {
+        Serial.printf("HTTP GET failed for %s, error: %d\n", url.c_str(), httpCode);
+    }
+    
+    http.end();
+    return payload;
+}
+
+void download_and_check_ota_file() {
+    // Step 0: Connect to Wi-Fi
+    WiFi.begin(SSID, PASSWORD);
+    delay(10000);
+    TEST_ASSERT_EQUAL(WL_CONNECTED, WiFi.status());
+    
+    // Step 1: Download firmware
+    HTTPClient http;
+    char firmware_url[256];
+    sprintf(firmware_url, "%s/%s", OTA_BASE_URL, "firmware.bin");
+    http.begin(firmware_url);
+    
+    int httpCode = http.GET();
+    if (httpCode != HTTP_CODE_OK) {
+        http.end();
+        TEST_FAIL_MESSAGE("Firmware download failed.");
+    }
+    
+    int contentLength = http.getSize();
+    if (contentLength <= 0) {
+        http.end();
+        TEST_FAIL_MESSAGE("Invalid firmware size.");
+  }
+  
+  
+    // Allocate buffer for firmware
+    uint8_t* firmwareBuffer = (uint8_t*)malloc(contentLength);
+    if (!firmwareBuffer) {
+        http.end();
+        TEST_FAIL_MESSAGE("Failed to allocate memory for firmware.");
+    }
+    
+    // Download firmware data
+    WiFiClient* stream = http.getStreamPtr();
+    size_t bytesRead = 0;
+    
+    while (bytesRead < contentLength) {
+        size_t available = stream->available();
+        if (available > 0) {
+            size_t toRead = min(available, (size_t)(contentLength - bytesRead));
+            stream->readBytes(firmwareBuffer + bytesRead, toRead);
+            bytesRead += toRead;
+        }
+    }
+    
+    http.end();
+    
+    // Step 3: Verify checksum
+    String calculatedChecksum = calculateSHA256(firmwareBuffer, contentLength);
+    char checksum_url[256];
+    sprintf(checksum_url, "%s/%s", OTA_BASE_URL, "checksum.txt");
+    String expectedChecksum = fetchString(checksum_url);
+    
+    if (expectedChecksum.length() == 0) {
+        free(firmwareBuffer);
+        TEST_FAIL_MESSAGE("Failed to fetch expected checksum.");
+    }
+    
+    // Convert to lowercase for comparison
+    calculatedChecksum.toLowerCase();
+    expectedChecksum.toLowerCase();
+    
+    if (calculatedChecksum != expectedChecksum) {
+        free(firmwareBuffer);
+        TEST_FAIL_MESSAGE("Checksum verification failed!");
+    }
+
+    free(firmwareBuffer);
+
+    TEST_ASSERT_TRUE(WiFi.disconnect(true, true));
+    delay(2000);
+    TEST_ASSERT_FALSE(WiFi.isConnected());
+  
+}
+
 void run_tests() {
     UNITY_BEGIN();
 
@@ -368,6 +483,7 @@ void run_tests() {
         RUN_TEST(mqtt_connect);
         RUN_TEST(mqtt_publish);
         RUN_TEST(mqtt_subscribe);
+        RUN_TEST(download_and_check_ota_file);
     }
     UNITY_END();
 }

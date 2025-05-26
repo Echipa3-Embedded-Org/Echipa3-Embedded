@@ -18,21 +18,21 @@ void tearDown(void) {
     preferences.end();
 }
 
-void wifi_secrets() {
+void secrets() {
     #ifndef SSID
     TEST_FAIL_MESSAGE("SSID not defined");
     #endif
     #ifndef PASSWORD
     TEST_FAIL_MESSAGE("WiFi PASSWORD not defined");
     #endif
-}
-
-void mqtt_secrets() {
     #ifndef MQTT_SERVER
     TEST_FAIL_MESSAGE("MQTT_SERVER not defined");
     #endif
     #ifndef MQTT_PORT
     TEST_FAIL_MESSAGE("MQTT_PORT not defined");
+    #endif
+    #ifndef OTA_BASE_URL
+    TEST_FAIL_MESSAGE("OTA_BASE_URL not defined");
     #endif
 }
 
@@ -103,8 +103,7 @@ void write_client_key() {
 void run_tests() {
     UNITY_BEGIN();
 
-    RUN_TEST(wifi_secrets);
-    RUN_TEST(mqtt_secrets);
+    RUN_TEST(secrets);
     RUN_TEST(read_ssid);
     RUN_TEST(read_password);
     RUN_TEST(read_mqtt_server);
