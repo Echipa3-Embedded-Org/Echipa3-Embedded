@@ -33,3 +33,6 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: report.sarif
+
+      - name: Perform Bandit Analysis
+        uses: PyCQA/bandit-action@v1
