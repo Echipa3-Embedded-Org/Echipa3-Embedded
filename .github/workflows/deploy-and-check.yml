@@ -30,9 +30,14 @@ jobs:
           mkdir -p dist
           echo "${{ github.sha }}" > dist/version.txt
       
-      - name: Set OTA Version in platformio.ini
+      - name: Replace OTA_VERSION with Git SHA
         run: |
-          sed -i "s|@OTA_VERSION@|${{ github.sha }}|" platformio/platformio.ini
+          # Replace @OTA_VERSION@ with the short Git SHA
+          sed -i 's/@OTA_VERSION@/${{ github.sha }}/g' platformio/src/esp32cam-code.ino
+          
+          # Verify the replacement
+          echo "Updated file content:"
+          grep -n "OTA_VERSION" platformio/src/esp32cam-code.ino || echo "No OTA_VERSION found"
 
       - name: Set up Python
         uses: actions/setup-python@v5.6.0
