@@ -78,6 +78,9 @@ jobs:
       - name: Deploy to DigitalOcean Kubernetes
         run: kubectl apply -f kubernetes/deployment.yaml
 
+      - name: Wait 10 seconds
+        run: sleep 10
+
       - name: Upload files to nginx pod
         run: |
           # Get the nginx pod name
