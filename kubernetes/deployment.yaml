@@ -21,14 +21,9 @@ spec:
       securityContext:
         fsGroup: 1000
       initContainers:
-      - name: nodered-init
+      - name: nodered-init-copy-flows
         image: 2001slavic/ss-nodered:latest
-        command: 
-        - /bin/sh
-        - -c
-        - |
-          cp /kubernetes/flows.json /data/flows.json
-          cp /kubernetes/settings.js /usr/src/node-red/node_modules/node-red/settings.js
+        command: ["/bin/sh", "-c", "cp /default-flows/flows.json /data/flows.json"]
         volumeMounts:
         - name: nodered-data
           mountPath: /data
@@ -42,13 +37,15 @@ spec:
         volumeMounts:
         - name: nodered-data
           mountPath: /data
-        - name: nodered-settings
-          mountPath: /usr/src/node-red/node_modules/node-red
         - name: nodered-images
           mountPath: /data/images
           readOnly: false
         - name: nodered-certs
           mountPath: /certs
+          readOnly: true
+        - name: nodered-config
+          mountPath: /usr/src/node-red/node_modules/node-red/settings.js
+          subPath: settings.js
           readOnly: true
       volumes:
         - name: nodered-certs
@@ -57,13 +54,13 @@ spec:
         - name: nodered-data
           persistentVolumeClaim:
             claimName: nodered-pvc
-        - name: nodered-settings
-          persistentVolumeClaim:
-            claimName: nodered-pvc
         - name: nodered-images
           hostPath:
             path: /mnt/ss-proiect/Node-Red/images
             type: DirectoryOrCreate
+        - name: nodered-config
+          configMap:
+            name: nodered-settings-js
 
       restartPolicy: Always
 ---
@@ -92,6 +89,78 @@ spec:
   resources:
     requests:
       storage: 1Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nodered-settings-js
+  namespace: ss
+data:
+  settings.js: |
+    module.exports = {
+
+    flowFile: 'flows.json',
+    flowFilePretty: true,
+    httpNodeAuth: {user:"student",pass:"$2y$08$jUBlsrZKT5Q7aTNph5klFe7yB9pMEbqbq0PqYFiimbr1.gaqC1/l2"},
+
+    diagnostics: {
+        enabled: true,
+        ui: true,
+    },
+    runtimeState: {
+        enabled: false,
+        ui: false,
+    },
+    logging: {
+        console: {
+            level: "info",
+            metrics: false,
+            audit: false
+        }
+    },
+    exportGlobalContextKeys: false,
+    externalModules: {
+    },
+    editorTheme: {
+
+        palette: {
+        },
+
+        projects: {
+            enabled: false,
+            workflow: {
+                mode: "manual"
+            }
+        },
+
+        codeEditor: {
+            lib: "monaco",
+            options: {
+            }
+        },
+
+        markdownEditor: {
+            mermaid: {
+                enabled: true
+            }
+        },
+
+        multiplayer: {
+            enabled: false
+        },
+    },
+
+    functionExternalModules: true,
+
+    functionTimeout: 0,
+    functionGlobalContext: {
+    },
+
+
+    debugMaxLength: 1000,
+    mqttReconnectTime: 15000,
+    serialReconnectTime: 15000,
+    }
 ---
 apiVersion: v1
 kind: ConfigMap
