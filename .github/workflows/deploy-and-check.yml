@@ -39,8 +39,8 @@ jobs:
         with:
           python-version: '3.12.3'
       
-      - name: Install dependencies
-        run: pip install --upgrade platformio esptool
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
 
       - name: Run PlatformIO check
         run: platformio check -d platformio -e esp32cam
@@ -51,15 +51,13 @@ jobs:
       - name: Build firmware
         run: platformio run -d platformio/
 
-      - name: Sign firmware using espsecure.py
+      - name: Compute firmware checksum
         run: |
           mkdir -p dist
-          echo "${{ secrets.OTA_SIGNING_KEY_2001SLAVIC }}" > signing_key.pem
           cp platformio/.pio/build/*/firmware.bin dist/
-          espsecure.py sign_data --version 2 \
-            --keyfile signing_key.pem \
-            --output dist/firmware_signed.bin \
-            dist/firmware.bin
+          sha256sum dist/firmware.bin | awk '{print $1}' > dist/firmware.sha256
+
+
 
       - name: Install doctl
         uses: digitalocean/action-doctl@v2.5.1
@@ -85,8 +83,9 @@ jobs:
           
           # Create ota directory and copy files
           kubectl exec -n ss $POD_NAME -- mkdir -p /usr/share/nginx/html/ota
-          kubectl cp -n ss dist/firmware_signed.bin $POD_NAME:/usr/share/nginx/html/ota/firmware.bin
+          kubectl cp -n ss dist/firmware.bin $POD_NAME:/usr/share/nginx/html/ota/firmware.bin
           kubectl cp -n ss dist/version.txt $POD_NAME:/usr/share/nginx/html/ota/version.txt
+          kubectl cp -n ss dist/firmware.sha256 $POD_NAME:/usr/share/nginx/html/ota/checksum.txt
           
           # Verify files were copied
           kubectl exec -n ss $POD_NAME -- ls -la /usr/share/nginx/html/ota/

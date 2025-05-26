@@ -215,11 +215,12 @@ spec:
         image: nginx:1.27.5
         ports:
         - name: nginx-port
-          containerPort: 80
+          containerPort: 443
         readinessProbe:
           httpGet:
             path: /
-            port: 80
+            port: 443
+            scheme: HTTPS 
           initialDelaySeconds: 5
           periodSeconds: 10
         volumeMounts:
@@ -227,10 +228,16 @@ spec:
           mountPath: /etc/nginx/nginx.conf
           subPath: nginx.conf
           readOnly: true
+        - name: tls-secret
+          mountPath: /etc/nginx/ssl
+          readOnly: true
       volumes:
       - name: nginx-config
         configMap:
           name: nginx-config
+      - name: tls-secret
+        secret:
+          secretName: nginx-tls-secret
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -240,22 +247,44 @@ metadata:
 data:
   nginx.conf: |
     events {
-        worker_connections 1024;
+      worker_connections 1024;
     }
 
     http {
-        server {
-            listen 80;
-            root /usr/share/nginx/html;
-            
-            location /ota/firmware.bin {
-                add_header Content-Type application/octet-stream;
-            }
-            
-            location /ota/version.txt {
-                add_header Content-Type text/plain;
-            }
+      server {
+        listen 443 ssl http2;
+        server_name echipa3.xyz;
+
+        location = / {
+          # Simple success for readiness probe
+          return 200 'OK';
+          add_header Content-Type text/plain;
         }
+
+        location / {
+          deny all;
+        }
+
+        root /usr/share/nginx/html;
+
+        ssl_certificate /etc/nginx/ssl/tls.crt;
+        ssl_certificate_key /etc/nginx/ssl/tls.key;
+
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_prefer_server_ciphers on;
+
+        location /ota/firmware.bin {
+          add_header Content-Type application/octet-stream;
+        }
+
+        location /ota/version.txt {
+          add_header Content-Type text/plain;
+        }
+
+        location /ota/checksum.txt {
+          add_header Content-Type text/plain;
+        }
+      }
     }
 ---
 apiVersion: v1
@@ -267,7 +296,8 @@ spec:
   selector:
     app: nginx
   ports:
-  - port: 80
+  - name: https
+    port: 443
     targetPort: nginx-port
     nodePort: 30002
   type: NodePort

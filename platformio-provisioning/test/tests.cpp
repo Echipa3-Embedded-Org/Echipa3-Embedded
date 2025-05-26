@@ -68,10 +68,6 @@ void read_client_key() {
     TEST_ASSERT_EQUAL_STRING(CLIENT_KEY, preferences.getString("CLIENT_KEY", "").c_str());
 }
 
-void read_public_sig_key() {
-    TEST_ASSERT_EQUAL_STRING(PUB_SIGN_KEY, preferences.getString("PUB_SIGN_KEY", "").c_str());
-}
-
 void write_ssid() {
     TEST_ASSERT_EQUAL(strlen(SSID), preferences.putString("SSID", SSID));
 }
@@ -104,10 +100,6 @@ void write_client_key() {
     TEST_ASSERT_EQUAL(strlen(CLIENT_KEY), preferences.putString("CLIENT_KEY", CLIENT_KEY));
 }
 
-void write_public_sig_key() {
-    TEST_ASSERT_EQUAL(strlen(PUB_SIGN_KEY), preferences.putString("PUB_SIGN_KEY", PUB_SIGN_KEY));
-}
-
 void run_tests() {
     UNITY_BEGIN();
 
@@ -121,7 +113,6 @@ void run_tests() {
     RUN_TEST(read_server_ca);
     RUN_TEST(read_client_crt);
     RUN_TEST(read_client_key);
-    RUN_TEST(read_public_sig_key);
     RUN_TEST(write_ssid);
     RUN_TEST(write_password);
     RUN_TEST(write_mqtt_server);
@@ -130,7 +121,6 @@ void run_tests() {
     RUN_TEST(write_server_ca);
     RUN_TEST(write_client_crt);
     RUN_TEST(write_client_key);
-    RUN_TEST(write_public_sig_key);
 
     UNITY_END();
 }

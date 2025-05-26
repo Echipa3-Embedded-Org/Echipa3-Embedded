@@ -66,12 +66,6 @@ void setup() {
         preferences.end();
         ESP.restart();
     }
-    ret = preferences.putString("PUB_SIGN_KEY", PUB_SIGN_KEY);
-    if (ret < strlen(PUB_SIGN_KEY)) {
-        Serial.println("Write PUB_SIGN_KEY failed. The board will now reset.");
-        preferences.end();
-        ESP.restart();
-    }
 
     preferences.end();
     Serial.println("Credentials successfully saved to NVS.");

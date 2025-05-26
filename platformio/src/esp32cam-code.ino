@@ -5,13 +5,11 @@
 #include <Preferences.h>
 #include <HTTPClient.h>
 #include <Update.h>
-#include <mbedtls/md.h>
-#include <mbedtls/pk.h>
-#include <mbedtls/entropy.h>
-#include <mbedtls/ctr_drbg.h>
+#include <mbedtls/sha256.h>
 #include "esp_camera.h"
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
+#include "esp_secure_boot.h"
 
 #define SECRETS_NAMESPACE "mqtt-secrets"
 #define READ_ONLY_SECRETS_NAMESPACE true
@@ -26,7 +24,6 @@ int32_t MQTT_PORT;
 char SERVER_CA[2048];
 char CLIENT_CRT[2048];
 char CLIENT_KEY[2048];
-char PUB_SIGN_KEY[2048];
 char OTA_BASE_URL[256];
 
 // MQTT Broker details
@@ -336,230 +333,194 @@ void readCredentials() {
     preferences.end();
     return;
   }
-  strcpy(PUB_SIGN_KEY, preferences.getString("PUB_SIGN_KEY", "").c_str());
-  if (PUB_SIGN_KEY[0] == '\0') {
-    Serial.println("fail. PUBLIC_SIGNING_KEY.");
-    preferences.end();
-    return;
-  }
   
   Serial.println("OK. ");
 
   preferences.end();
 }
 
-String getRemoteVersion() {
-    HTTPClient http;
-    char ota_version_url[256];
-    sprintf(ota_version_url, "%s/%s", OTA_BASE_URL, "version.txt");
-    http.begin(ota_version_url);
-    int httpCode = http.GET();
-    
-    if (httpCode == HTTP_CODE_OK) {
-        String version = http.getString();
-        version.trim();
-        http.end();
-        return version;
-    }
-    
-    http.end();
-    return "";
+// Function to calculate SHA256 checksum of downloaded data
+String calculateSHA256(uint8_t* data, size_t len) {
+  mbedtls_sha256_context ctx;
+  unsigned char digest[32];
+  char sha256String[65] = {0};
+  
+  mbedtls_sha256_init(&ctx);
+  mbedtls_sha256_starts(&ctx, 0); // 0 for SHA256
+  mbedtls_sha256_update(&ctx, data, len);
+  mbedtls_sha256_finish(&ctx, digest);
+  mbedtls_sha256_free(&ctx);
+  
+  for (int i = 0; i < 32; i++) {
+    sprintf(&sha256String[i * 2], "%02x", digest[i]);
+  }
+  
+  return String(sha256String);
 }
 
-bool verifyFirmwareSignature(const uint8_t* firmware, size_t firmwareSize, const uint8_t* signature, size_t signatureSize) {
-    mbedtls_pk_context pk;
-    mbedtls_entropy_context entropy;
-    mbedtls_ctr_drbg_context ctr_drbg;
-    
-    mbedtls_pk_init(&pk);
-    mbedtls_entropy_init(&entropy);
-    mbedtls_ctr_drbg_init(&ctr_drbg);
-    
-    int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, NULL, 0);
-    if (ret != 0) {
-        Serial.printf("Crypto seed failed: %d\n", ret);
-        goto cleanup;
-    }
-    
-    ret = mbedtls_pk_parse_public_key(&pk, (const unsigned char*)PUB_SIGN_KEY, strlen(PUB_SIGN_KEY) + 1);
-    if (ret != 0) {
-        Serial.printf("Public key parse failed: %d\n", ret);
-        goto cleanup;
-    }
-    
-    // Calculate SHA-256 hash
-    unsigned char hash[32];
-    mbedtls_md_context_t md_ctx;
-    mbedtls_md_init(&md_ctx);
-    
-    ret = mbedtls_md_setup(&md_ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), 0);
-    if (ret != 0) {
-        mbedtls_md_free(&md_ctx);
-        goto cleanup;
-    }
-    
-    mbedtls_md_starts(&md_ctx);
-    mbedtls_md_update(&md_ctx, firmware, firmwareSize);
-    mbedtls_md_finish(&md_ctx, hash);
-    mbedtls_md_free(&md_ctx);
-    
-    // Verify signature
-    ret = mbedtls_pk_verify(&pk, MBEDTLS_MD_SHA256, hash, 32, signature, signatureSize);
-    
-    cleanup:
-    mbedtls_pk_free(&pk);
-    mbedtls_entropy_free(&entropy);
-    mbedtls_ctr_drbg_free(&ctr_drbg);
-    
-    return ret == 0;
+// Function to fetch string from URL
+String fetchString(const String& url) {
+  HTTPClient http;
+  http.begin(url);
+  
+  int httpCode = http.GET();
+  String payload = "";
+  
+  if (httpCode == HTTP_CODE_OK) {
+    payload = http.getString();
+    payload.trim(); // Remove any whitespace/newlines
+  } else {
+    Serial.printf("HTTP GET failed for %s, error: %d\n", url.c_str(), httpCode);
+  }
+  
+  http.end();
+  return payload;
 }
 
-bool downloadAndApplyFirmware() {
-    HTTPClient http;
-    char ota_firmware_url[256];
-    sprintf(ota_firmware_url, "%s/%s", OTA_BASE_URL, "firmware.bin");
-    http.begin(ota_firmware_url);
-    int httpCode = http.GET();
-    
-    if (httpCode != HTTP_CODE_OK) {
-        Serial.printf("Download failed: %d\n", httpCode);
-        http.end();
-        return false;
-    }
-    
-    int contentLength = http.getSize();
-    if (contentLength <= 0) {
-        Serial.println("Invalid firmware size");
-        http.end();
-        return false;
-    }
-    
-    Serial.printf("Downloading firmware: %d bytes\n", contentLength);
-    
-    // Allocate buffer to store entire firmware for signature verification
-    uint8_t* firmwareBuffer = (uint8_t*)malloc(contentLength);
-    if (!firmwareBuffer) {
-        Serial.println("Failed to allocate memory for firmware");
-        http.end();
-        return false;
-    }
-    
-    WiFiClient* client = http.getStreamPtr();
-    size_t downloaded = 0;
-    uint8_t buffer[1024];
-    
-    // Download entire firmware into memory first
-    while (http.connected() && downloaded < contentLength) {
-        size_t available = client->available();
-        if (available > 0) {
-            int bytesToRead = min(available, sizeof(buffer));
-            int bytesRead = client->readBytes(buffer, bytesToRead);
-            
-            if (bytesRead > 0) {
-                memcpy(firmwareBuffer + downloaded, buffer, bytesRead);
-                downloaded += bytesRead;
-                
-                if (downloaded % 8192 == 0) {
-                    Serial.printf("Download progress: %.1f%%\n", (float)downloaded / contentLength * 100);
-                }
-            }
-        }
-        delay(1);
-    }
-    
-    http.end();
-    
-    if (downloaded != contentLength) {
-        Serial.printf("Download incomplete: %d/%d\n", downloaded, contentLength);
-        free(firmwareBuffer);
-        return false;
-    }
-    
-    Serial.println("Download complete, verifying signature...");
-    
-    // Extract signature from signed firmware
-    // espsecure.py appends signature to the end of the file
-    // Last 256 bytes are typically the signature for RSA-2048
-    if (contentLength < 256) {
-        Serial.println("Firmware too small to contain signature");
-        free(firmwareBuffer);
-        return false;
-    }
-    
-    size_t firmwareSize = contentLength - 256;  // Actual firmware size
-    uint8_t* signature = firmwareBuffer + firmwareSize;  // Last 256 bytes
-    
-    // Verify signature
-    if (!verifyFirmwareSignature(firmwareBuffer, firmwareSize, signature, 256)) {
-        Serial.println("Signature verification failed!");
-        free(firmwareBuffer);
-        return false;
-    }
-    
-    Serial.println("Signature verified successfully!");
-    
-    // Now apply the update with the verified firmware (without signature bytes)
-    if (!Update.begin(firmwareSize)) {
-        Serial.println("Not enough space for update");
-        free(firmwareBuffer);
-        return false;
-    }
-    
-    size_t written = Update.write(firmwareBuffer, firmwareSize);
-    free(firmwareBuffer);
-    
-    if (written != firmwareSize) {
-        Serial.printf("Write failed: %d/%d bytes\n", written, firmwareSize);
-        Update.abort();
-        return false;
-    }
-    
-    if (Update.end(true)) {
-        Serial.println("Update successful!");
-        return true;
-    } else {
-        Serial.printf("Update failed: %s\n", Update.errorString());
-        return false;
-    }
-}
-
-bool checkForOTAUpdate() {
-    Serial.println("Checking for updates...");
-    
-    String remoteVersion = getRemoteVersion();
-    if (remoteVersion.isEmpty()) {
-        Serial.println("Failed to get remote version");
-        return false;
-    }
-    
-    Serial.printf("Current: %s, Remote: %s\n", OTA_VERSION, remoteVersion.c_str());
-    
-    if (remoteVersion.equals(OTA_VERSION)) {
-        Serial.println("Already up to date");
-        return false;
-    }
-    
-    Serial.println("New version available, updating...");
-    
-    if (downloadAndApplyFirmware()) {
-        Serial.println("Restarting in 3 seconds...");
-        delay(3000);
-        ESP.restart();
-        return true;
-    }
-    
-    Serial.println("Update failed");
+// Main OTA update function
+bool performOTAUpdate() {
+  Serial.println("Checking for OTA updates...");
+  
+  // Step 1: Check version
+  char version_url[256];
+  sprintf(version_url, "%s/%s", OTA_BASE_URL, "version.txt");
+  String remoteVersion = fetchString(version_url);
+  if (remoteVersion.length() == 0) {
+    Serial.println("Failed to fetch remote version");
     return false;
+  }
+  
+  Serial.printf("Local version: %s\n", OTA_VERSION);
+  Serial.printf("Remote version: %s\n", remoteVersion.c_str());
+  
+  if (remoteVersion == OTA_VERSION) {
+    Serial.println("Firmware is up to date");
+    return true;
+  }
+  
+  Serial.println("New firmware version available, starting download...");
+  
+  // Step 2: Download firmware
+  HTTPClient http;
+  char firmware_url[256];
+  sprintf(firmware_url, "%s/%s", OTA_BASE_URL, "firmware.bin");
+  http.begin(firmware_url);
+  
+  int httpCode = http.GET();
+  if (httpCode != HTTP_CODE_OK) {
+    Serial.printf("Firmware download failed, error: %d\n", httpCode);
+    http.end();
+    return false;
+  }
+  
+  int contentLength = http.getSize();
+  if (contentLength <= 0) {
+    Serial.println("Invalid firmware size");
+    http.end();
+    return false;
+  }
+  
+  Serial.printf("Firmware size: %d bytes\n", contentLength);
+  
+  // Allocate buffer for firmware
+  uint8_t* firmwareBuffer = (uint8_t*)malloc(contentLength);
+  if (!firmwareBuffer) {
+    Serial.println("Failed to allocate memory for firmware");
+    http.end();
+    return false;
+  }
+  
+  // Download firmware data
+  WiFiClient* stream = http.getStreamPtr();
+  size_t bytesRead = 0;
+  
+  while (bytesRead < contentLength) {
+    size_t available = stream->available();
+    if (available > 0) {
+      size_t toRead = min(available, (size_t)(contentLength - bytesRead));
+      stream->readBytes(firmwareBuffer + bytesRead, toRead);
+      bytesRead += toRead;
+      
+      // Print progress
+      if (bytesRead % 1024 == 0 || bytesRead == contentLength) {
+        Serial.printf("Downloaded: %d/%d bytes (%d%%)\n", 
+                     bytesRead, contentLength, (bytesRead * 100) / contentLength);
+      }
+    }
+  }
+  
+  http.end();
+  
+  // Step 3: Verify checksum
+  String calculatedChecksum = calculateSHA256(firmwareBuffer, contentLength);
+  char checksum_url[256];
+  sprintf(checksum_url, "%s/%s", OTA_BASE_URL, "checksum.txt");
+  String expectedChecksum = fetchString(checksum_url);
+  
+  if (expectedChecksum.length() == 0) {
+    Serial.println("Failed to fetch expected checksum");
+    free(firmwareBuffer);
+    return false;
+  }
+  
+  // Convert to lowercase for comparison
+  calculatedChecksum.toLowerCase();
+  expectedChecksum.toLowerCase();
+  
+  Serial.printf("Calculated SHA256: %s\n", calculatedChecksum.c_str());
+  Serial.printf("Expected SHA256: %s\n", expectedChecksum.c_str());
+  
+  if (calculatedChecksum != expectedChecksum) {
+    Serial.println("Checksum verification failed!");
+    free(firmwareBuffer);
+    return false;
+  }
+  
+  Serial.println("Checksum verification passed");
+  
+  // Step 4: Start OTA update
+  Serial.println("Starting OTA update...");
+  
+  if (!Update.begin(contentLength)) {
+    Serial.printf("OTA begin failed: %s\n", Update.errorString());
+    free(firmwareBuffer);
+    return false;
+  }
+  
+  size_t written = Update.write(firmwareBuffer, contentLength);
+  if (written != contentLength) {
+    Serial.printf("OTA write failed: wrote %d of %d bytes\n", written, contentLength);
+    Update.abort();
+    free(firmwareBuffer);
+    return false;
+  }
+  
+  if (!Update.end()) {
+    Serial.printf("OTA end failed: %s\n", Update.errorString());
+    free(firmwareBuffer);
+    return false;
+  }
+  
+  free(firmwareBuffer);
+  
+  Serial.println("OTA update completed successfully!");
+  Serial.println("Restarting in 3 seconds...");
+  
+  delay(3000);
+  ESP.restart();
+  
+  return true;
 }
 
-void performOTAUpdate() {
-    if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("WiFi not connected");
-        return;
-    }
-    
-    checkForOTAUpdate();
+// Call this function in your loop() or from a timer
+void checkForOTAUpdate() {
+  if (WiFi.status() == WL_CONNECTED) {
+    performOTAUpdate();
+  } else {
+    Serial.println("WiFi not connected, skipping OTA check");
+  }
 }
+
 
 // ================== Main Functions ==================
 void setup() {
@@ -572,7 +533,7 @@ void setup() {
   digitalWrite(LED_BUILTIN, LOW);
 
   connectToWiFi();
-  performOTAUpdate();
+  checkForOTAUpdate();
   setupCamera();
 
   // Configure secure client with certificates

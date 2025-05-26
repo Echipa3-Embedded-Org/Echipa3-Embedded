@@ -38,7 +38,6 @@ int32_t MQTT_PORT;
 char SERVER_CA[2048];
 char CLIENT_CRT[2048];
 char CLIENT_KEY[2048];
-char PUB_SIGN_KEY[2048];
 char OTA_BASE_URL[256];
 
 Preferences preferences;
@@ -95,12 +94,6 @@ bool readCredentials() {
     strcpy(CLIENT_KEY, preferences.getString("CLIENT_KEY", "").c_str());
     if (CLIENT_KEY[0] == '\0') {
         Serial.println("fail. CLIENT_KEY.");
-        preferences.end();
-        return false;
-    }
-    strcpy(PUB_SIGN_KEY, preferences.getString("PUB_SIGN_KEY", "").c_str());
-    if (PUB_SIGN_KEY[0] == '\0') {
-        Serial.println("fail. PUB_SIGN_KEY.");
         preferences.end();
         return false;
     }
