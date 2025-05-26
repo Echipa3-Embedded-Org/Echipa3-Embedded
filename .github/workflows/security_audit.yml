@@ -1,0 +1,50 @@
+name: Security Audit
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Python dependencies
+        run: |
+          if [ -f vulnerable_app/requirements.txt ]; then
+            pip install -r vulnerable_app/requirements.txt
+          fi
+
+      - name: Run Bandit (Python static analysis)
+        run: |
+          if [ -d vulnerable_app ]; then
+            bandit -r vulnerable_app
+          else
+            echo "No vulnerable_app directory found. Skipping Bandit."
+          fi
+
+      - name: Run Semgrep (OWASP Top 10 rules)
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: 'p/owasp-top-ten'
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget
+          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.44.0_Linux-64bit.deb
+          sudo dpkg -i trivy_0.44.0_Linux-64bit.deb
+
+      - name: Run Trivy (Filesystem Scan)
+        run: trivy fs --exit-code 1 .
+
+  dependabot-placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Note about Dependabot alerts
+        run: echo "Dependabot alerts are managed via GitHub UI or .github/dependabot.yml"
