@@ -292,11 +292,11 @@ void readCredentials() {
     return;
   }
   strcpy(PASSWORD, preferences.getString("PASSWORD", "").c_str());
-  if (PASSWORD[0] == '\0') {
-    Serial.println("fail. PASSWORD.");
-    preferences.end();
-    return;
-  }
+  // if (PASSWORD[0] == '\0') {
+  //   Serial.println("fail. PASSWORD.");
+  //   preferences.end();
+  //   return;
+  // }
   strcpy(MQTT_SERVER, preferences.getString("MQTT_SERVER", "").c_str());
   if (MQTT_SERVER[0] =='\0') {
     Serial.println("fail. MQTT_SERVER.");
