@@ -561,6 +561,33 @@ void performOTAUpdate() {
     checkForOTAUpdate();
 }
 
+// ================== Main Functions ==================
+void setup() {
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
+  Serial.begin(115200);
+  
+  readCredentials();
+
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
+
+  connectToWiFi();
+  performOTAUpdate();
+  setupCamera();
+
+  // Configure secure client with certificates
+  net.setCACert(SERVER_CA);
+  net.setCertificate(CLIENT_CRT);
+  net.setPrivateKey(CLIENT_KEY);
+
+  // Initialize MQTT client
+  client.begin(MQTT_SERVER, MQTT_PORT, net);
+  client.onMessage(messageReceived);
+  connectToMQTT();
+
+  Serial.println("System initialized");
+}
+
 //////////////////////////////////////////////////////////////////////////////////
 void loop() {
 
